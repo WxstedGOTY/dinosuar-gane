@@ -15,6 +15,9 @@
   var CANVAS_WIDTH = 600;
   var CANVAS_HEIGHT = 150;
 
+  // Longest step a single frame may advance the world by: three frames' worth.
+  var MAX_FRAME_TIME = 3 * (1000 / FPS);
+
   // The y coordinate the T-Rex's feet rest on.
   var GROUND_Y = 140;
   // Top of the horizon line.
@@ -326,6 +329,40 @@
       }
 
       this.ctx.drawImage(image, Math.round(this.xPos), Math.round(y));
+    },
+
+    /**
+     * Roll a jump arc forward without touching live state, using exactly the
+     * physics updateJump applies. Hack mode plans against this, so the two can
+     * never drift apart.
+     * @param {number} speed
+     * @param {number} maxFrames
+     * @return {!Array<number>} y position after each frame, ending on the ground
+     */
+    predictJump: function (speed, maxFrames) {
+      var y = this.groundYPos;
+      var vel = this.config.INITIAL_JUMP_VELOCITY - (speed / 10);
+      var reachedMin = false;
+      var arc = [];
+
+      for (var f = 0; f < maxFrames; f++) {
+        y += Math.round(vel);
+        vel += CONFIG.GRAVITY;
+
+        if (y < this.minJumpHeight) {
+          reachedMin = true;
+        }
+        if (y < this.config.MAX_JUMP_HEIGHT &&
+            reachedMin && vel < this.config.DROP_VELOCITY) {
+          vel = this.config.DROP_VELOCITY;
+        }
+        if (y >= this.groundYPos) {
+          arc.push(this.groundYPos);
+          break;
+        }
+        arc.push(y);
+      }
+      return arc;
     },
 
     /** @return {!Array<!CollisionBox>} world-space collision boxes. */
@@ -750,7 +787,6 @@
    */
   function DistanceMeter(canvasCtx, canvasWidth) {
     this.ctx = canvasCtx;
-    this.maxScoreUnits = 5;
     this.achievementDistance = 100;
     this.coefficient = 0.025;
     this.flashDuration = 1000 / 4;
@@ -764,9 +800,11 @@
     this.invertFlash = false;
 
     this.y = 10;
-    var digitsWidth = global.Sprites.measureText('00000');
-    this.x = canvasWidth - digitsWidth - 12;
-    this.highScoreX = this.x - digitsWidth - global.Sprites.measureText('HI') - 22;
+    this.minDigits = 5;
+    // Both readouts are right-aligned to this edge, so a score that outgrows
+    // five digits -- which a long hack-mode run will -- just extends leftwards
+    // instead of being clipped.
+    this.rightEdge = canvasWidth - 12;
   }
 
   DistanceMeter.prototype = {
@@ -807,24 +845,30 @@
 
     pad: function (value) {
       var str = String(value);
-      while (str.length < this.maxScoreUnits) {
+      while (str.length < this.minDigits) {
         str = '0' + str;
       }
-      return str.slice(-this.maxScoreUnits);
+      return str;
     },
 
     draw: function () {
+      var score = this.pad(this.currentDistance);
+      var scoreX = this.rightEdge - global.Sprites.measureText(score);
+
       // The score blinks off on alternate flash frames.
       if (!(this.flashIterationsLeft > 0 && this.invertFlash)) {
-        global.Sprites.drawText(this.ctx, this.pad(this.currentDistance), this.x, this.y);
+        global.Sprites.drawText(this.ctx, score, scoreX, this.y);
       }
 
       if (this.highScore > 0) {
+        var hi = this.pad(this.highScore);
+        var hiX = scoreX - 22 - global.Sprites.measureText(hi);
+        var labelX = hiX - 12 - global.Sprites.measureText('HI');
+
         this.ctx.save();
         this.ctx.globalAlpha = 0.5;
-        global.Sprites.drawText(this.ctx, 'HI', this.highScoreX, this.y);
-        global.Sprites.drawText(this.ctx, this.pad(this.highScore),
-            this.highScoreX + global.Sprites.measureText('HI') + 12, this.y);
+        global.Sprites.drawText(this.ctx, 'HI', labelX, this.y);
+        global.Sprites.drawText(this.ctx, hi, hiX, this.y);
         this.ctx.restore();
       }
     },
@@ -920,8 +964,15 @@
     this.inverted = false;
     this.invertTimer = 0;
 
+    // True while the player is holding a jump or duck input. Hack mode stands
+    // down entirely for as long as this is set.
+    this.manualControl = false;
+    this.heldJump = false;
+    this.heldDuck = false;
+
     this.sound = new Sound();
     this.storageKey = 'offline-runner.highScore';
+    this.modeKey = 'offline-runner.mode';
 
     this.setupCanvas();
 
@@ -931,9 +982,11 @@
     this.horizon = new Horizon(this.ctx, CONFIG.GAP_COEFFICIENT);
     this.distanceMeter = new DistanceMeter(this.ctx, this.dimensions.WIDTH);
     this.gameOverPanel = new GameOverPanel(this.ctx);
+    this.autopilot = new global.Autopilot(this);
 
     this.loadHighScore();
     this.bindEvents();
+    this.bindSettings();
     this.play();
   }
 
@@ -993,28 +1046,127 @@
       });
     },
 
+    // ----------------------------------------------------------- Settings --
+
+    bindSettings: function () {
+      var self = this;
+
+      this.settings = this.container.querySelector('.settings');
+      if (!this.settings) return;
+
+      this.settingsToggle = this.settings.querySelector('.settings__toggle');
+      this.settingsPanel = this.settings.querySelector('.settings__panel');
+      this.settingsBadge = this.settings.querySelector('.settings__badge');
+      this.modeInputs = this.settings.querySelectorAll('input[name="mode"]');
+
+      this.settingsToggle.addEventListener('click', function () {
+        self.openSettings(self.settingsPanel.hidden);
+      });
+
+      for (var i = 0; i < this.modeInputs.length; i++) {
+        this.modeInputs[i].addEventListener('change', function () {
+          if (!this.checked) return;
+          self.setMode(this.value);
+          // Close and hand focus back, otherwise the radio keeps it and eats
+          // the spacebar the player expects to jump with.
+          self.openSettings(false);
+          this.blur();
+        });
+      }
+
+      // A click anywhere else closes the panel.
+      document.addEventListener('pointerdown', function (e) {
+        if (!self.settings.contains(e.target)) self.openSettings(false);
+      }, true);
+
+      var saved = 'normal';
+      try {
+        saved = global.localStorage.getItem(this.modeKey) || 'normal';
+      } catch (e) {
+        // Storage unavailable -- start in normal mode.
+      }
+      this.setMode(saved === 'hack' ? 'hack' : 'normal');
+    },
+
+    openSettings: function (open) {
+      if (!this.settingsPanel) return;
+      this.settingsPanel.hidden = !open;
+      this.settingsToggle.setAttribute('aria-expanded', String(open));
+    },
+
+    /**
+     * @param {string} mode 'normal' or 'hack'
+     */
+    setMode: function (mode) {
+      var hack = mode === 'hack';
+      this.mode = hack ? 'hack' : 'normal';
+      this.autopilot.enabled = hack;
+
+      for (var i = 0; i < this.modeInputs.length; i++) {
+        this.modeInputs[i].checked = this.modeInputs[i].value === this.mode;
+      }
+      if (this.settingsBadge) this.settingsBadge.hidden = !hack;
+      this.container.classList.toggle('hacking', hack);
+
+      try {
+        global.localStorage.setItem(this.modeKey, this.mode);
+      } catch (e) {
+        // Ignore.
+      }
+
+      // Turning hack mode on from a crash screen should pick the game back up.
+      if (hack && this.crashed) {
+        this.scheduleAutoRestart();
+      }
+    },
+
+    /** In hack mode a crash is only ever a pause. */
+    scheduleAutoRestart: function () {
+      var self = this;
+      if (this.autoRestartTimer) global.clearTimeout(this.autoRestartTimer);
+      this.autoRestartTimer = global.setTimeout(function () {
+        self.autoRestartTimer = null;
+        if (self.autopilot.enabled && self.crashed) self.restart();
+      }, CONFIG.GAMEOVER_CLEAR_TIME + 250);
+    },
+
     onKeyDown: function (e) {
       if (e.repeat) return;
+      // While the panel is open its own controls own the keyboard.
+      if (this.settingsPanel && !this.settingsPanel.hidden &&
+          this.settings.contains(e.target)) {
+        if (e.key === 'Escape') this.openSettings(false);
+        return;
+      }
       this.sound.init();
 
       if (KEYCODES.JUMP[e.key]) {
         e.preventDefault();
+        this.heldJump = true;
+        this.manualControl = true;
         this.handleJumpStart();
       } else if (KEYCODES.DUCK[e.key]) {
         e.preventDefault();
+        this.heldDuck = true;
+        this.manualControl = true;
         this.handleDuckStart();
       } else if (e.key === 'm' || e.key === 'M') {
         this.sound.muted = !this.sound.muted;
         this.container.classList.toggle('muted', this.sound.muted);
+      } else if (e.key === 'Escape') {
+        this.openSettings(false);
       }
     },
 
     onKeyUp: function (e) {
       if (KEYCODES.JUMP[e.key]) {
+        this.heldJump = false;
         this.handleJumpEnd();
       } else if (KEYCODES.DUCK[e.key]) {
+        this.heldDuck = false;
         this.handleDuckEnd();
       }
+      this.manualControl = this.heldJump || this.heldDuck;
     },
 
     onPointerDown: function (e) {
@@ -1022,8 +1174,10 @@
       this.sound.init();
 
       var rect = this.canvas.getBoundingClientRect();
-      var x = (e.clientX - rect.left) * (this.dimensions.WIDTH / rect.width);
       var y = (e.clientY - rect.top) * (this.dimensions.HEIGHT / rect.height);
+
+      this.openSettings(false);
+      this.manualControl = true;
 
       if (this.crashed) {
         this.handleJumpStart();
@@ -1032,20 +1186,25 @@
 
       // Touching the lower quarter of the canvas ducks instead of jumping.
       if (this.playing && y > this.dimensions.HEIGHT * 0.72) {
+        this.heldDuck = true;
         this.handleDuckStart();
       } else {
+        this.heldJump = true;
         this.handleJumpStart();
       }
     },
 
     onPointerUp: function () {
+      this.heldJump = false;
+      this.heldDuck = false;
+      this.manualControl = false;
       this.handleJumpEnd();
       this.handleDuckEnd();
     },
 
     handleJumpStart: function () {
       if (this.crashed) {
-        // Chrome enforces a short delay so you cannot restart by accident.
+        // A short delay so you cannot restart by accident on the crash frame.
         if (global.performance.now() - this.crashTime >= CONFIG.GAMEOVER_CLEAR_TIME) {
           this.restart();
         }
@@ -1126,8 +1285,15 @@
     },
 
     scheduleNextUpdate: function () {
+      // Idempotent on purpose. update() can reach play() indirectly -- hack
+      // mode starting a run is the usual way -- and without this guard that
+      // path leaves two request-animation-frame loops running against one
+      // shared clock, halving every deltaTime and breaking jump physics.
+      if (this.rafId !== null) return;
+
       var self = this;
       this.rafId = global.requestAnimationFrame(function (now) {
+        self.rafId = null;
         self.update(now);
       });
     },
@@ -1149,15 +1315,24 @@
       }
 
       this.draw();
+
+      if (this.autopilot.enabled) {
+        this.scheduleAutoRestart();
+      }
     },
 
     // -------------------------------------------------------------- Frame --
 
     update: function (now) {
-      // Clamp the step so a backgrounded tab does not teleport the player
-      // through an obstacle on return.
-      var deltaTime = Math.min(now - this.time, 100);
+      // Clamp the step so a stalled frame cannot teleport the world forward.
+      // At 100ms an obstacle moves most of a T-Rex width in a single tick,
+      // which is unreactable for a player and unplannable for hack mode; three
+      // frames' worth means a hitch briefly slows the game instead.
+      var deltaTime = Math.min(now - this.time, MAX_FRAME_TIME);
       this.time = now;
+
+      // Decide before the world moves, exactly where a keypress would land.
+      this.autopilot.step();
 
       if (this.playing) {
         this.runningTime += deltaTime;

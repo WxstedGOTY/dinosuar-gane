@@ -146,6 +146,10 @@
     '.....####....'
   ];
 
+  // Facing left, into its direction of travel. Beak and open mouth on the
+  // left, body across the middle, and one swept wing that alternates up and
+  // down. The body sits at the same rows in both frames so the collision
+  // boxes stay put while the wing flaps.
   var PTERODACTYL_1 = [
     '...............######..',
     '..............######...',
