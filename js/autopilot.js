@@ -6,12 +6,11 @@
  *
  *   - does doing nothing survive the next HORIZON frames?
  *   - does ducking and holding it survive?
- *   - does jumping survive, now or one frame later?
+ *   - does jumping survive, and how much longer could it be put off?
  *
- * Jumping happens on the last frame where jumping still clears everything,
- * so the arc peaks over the obstacle instead of ahead of it. The prediction
- * runs the same jump physics the live T-Rex uses (Trex.predictJump) and the
- * same collision boxes, so it cannot drift out of sync with the game.
+ * The prediction runs the same jump physics the live T-Rex uses
+ * (Trex.predictJump) and the same collision boxes, so it cannot drift out of
+ * sync with the game.
  */
 
 (function (global) {
