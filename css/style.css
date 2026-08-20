@@ -1,0 +1,113 @@
+/* Offline Runner -- personal project, self-contained, no external assets. */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: #fff;
+  color: #535353;
+  font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  /* Stop the page bouncing when you tap to jump on a phone. */
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.page {
+  width: 100%;
+  max-width: 600px;
+  text-align: center;
+}
+
+.page__title {
+  margin: 0 0 18px;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.runner-container {
+  width: 100%;
+  overflow: hidden;
+}
+
+.runner-canvas {
+  display: block;
+  width: 600px;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 1;
+  margin: 0 auto;
+  background: #fff;
+  /* Keep the pixel art crisp when the canvas is scaled down on narrow screens. */
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  touch-action: none;
+  cursor: pointer;
+  transition: filter 0.6s ease;
+}
+
+/* Night mode. The game flips the whole canvas rather than repainting it,
+   which is how the original does it too. */
+.runner-container.inverted .runner-canvas {
+  filter: invert(1);
+}
+
+.hint {
+  margin: 20px 0 0;
+  font-size: 12px;
+  line-height: 2;
+  opacity: 0.55;
+}
+
+.hint kbd {
+  display: inline-block;
+  min-width: 20px;
+  padding: 2px 6px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font: inherit;
+  font-size: 11px;
+  opacity: 0.9;
+}
+
+.runner-container.muted ~ .hint {
+  opacity: 0.3;
+}
+
+/* On a dark page the canvas starts inverted, so night mode flips it back --
+   the same trade the original makes. */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #202124;
+    color: #c8c8c8;
+  }
+
+  .runner-canvas {
+    filter: invert(1);
+  }
+
+  .runner-container.inverted .runner-canvas {
+    filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .runner-canvas {
+    transition: none;
+  }
+}
