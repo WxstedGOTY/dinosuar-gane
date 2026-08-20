@@ -36,15 +36,13 @@
     MAX_OBSTACLE_LENGTH: 3,
     MAX_OBSTACLE_DUPLICATION: 2,
     MAX_SPEED: 13,
-    MIN_JUMP_HEIGHT: 35,
     SPEED: 6,
     SPEED_DROP_COEFFICIENT: 3
   };
 
   var KEYCODES = {
     JUMP: { ' ': 1, 'ArrowUp': 1, 'Enter': 1, 'w': 1, 'W': 1 },
-    DUCK: { 'ArrowDown': 1, 's': 1, 'S': 1 },
-    RESTART: { ' ': 1, 'Enter': 1, 'ArrowUp': 1 }
+    DUCK: { 'ArrowDown': 1, 's': 1, 'S': 1 }
   };
 
   // ------------------------------------------------------------- Utilities --
@@ -759,7 +757,6 @@
     this.flashIterations = 6;
 
     this.currentDistance = 0;
-    this.maxScore = 0;
     this.highScore = 0;
 
     this.flashingTimer = 0;
@@ -917,10 +914,8 @@
     this.time = 0;
     this.rafId = null;
 
-    this.activated = false;   // a run is in progress
     this.playing = false;
     this.crashed = false;
-    this.paused = false;
 
     this.inverted = false;
     this.invertTimer = 0;
@@ -1094,7 +1089,6 @@
 
     startGame: function () {
       this.playing = true;
-      this.activated = true;
       this.crashed = false;
       this.runningTime = 0;
       this.trex.reset();
@@ -1106,7 +1100,6 @@
       this.runningTime = 0;
       this.playing = true;
       this.crashed = false;
-      this.paused = false;
       this.distanceRan = 0;
       this.currentSpeed = CONFIG.SPEED;
       this.invertTimer = 0;
