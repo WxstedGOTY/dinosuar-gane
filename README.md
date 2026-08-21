@@ -76,7 +76,9 @@ rejects every option and leaves nothing but panic jumps.
   lanes: low (jump it), middle (duck or jump) and high (safe if you hold your
   nerve and keep running).
 - The score flashes every 100 points.
-- Every 700 points the world flips to night for 12 seconds.
+- Every 700 points the world flips to night for 12 seconds. A run always
+  starts in daylight, including on a device set to a dark theme -- only the
+  page around the canvas follows the device.
 - The high score is kept in `localStorage` under `offline-runner.highScore`.
 
 ## Layout

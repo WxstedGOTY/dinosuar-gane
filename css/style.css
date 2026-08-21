@@ -51,6 +51,12 @@ body {
   --ui-bg: #fff;
   --ui-fg: #535353;
   --ui-line: #c4c4c4;
+
+  /* Native controls paint themselves from color-scheme, not from the tokens
+     above, so it has to track the canvas too. Left to the page's own theme,
+     an unchecked radio renders as a solid light disc on the night panel and
+     reads as the selected one. */
+  color-scheme: light;
 }
 
 .runner-canvas {
@@ -79,6 +85,7 @@ body {
   --ui-bg: #1c1c1c;
   --ui-fg: #cfcfcf;
   --ui-line: #4a4a4a;
+  color-scheme: dark;
 }
 
 /* ------------------------------------------------------------- Settings -- */
@@ -212,32 +219,14 @@ body {
   opacity: 0.3;
 }
 
-/* On a dark page the canvas starts inverted, so night mode flips it back --
-   the same trade the original makes. */
+/* The page around the canvas follows the reader's theme, but the game itself
+   deliberately does not: a run always starts in daylight and turns to night at
+   the first milestone, whichever theme the device is in. Inverting the canvas
+   to match a dark OS would run the day/night cycle backwards. */
 @media (prefers-color-scheme: dark) {
   body {
     background: #202124;
     color: #c8c8c8;
-  }
-
-  .runner-canvas {
-    filter: invert(1);
-  }
-
-  .runner-container.inverted .runner-canvas {
-    filter: none;
-  }
-
-  .runner-container {
-    --ui-bg: #1c1c1c;
-    --ui-fg: #cfcfcf;
-    --ui-line: #4a4a4a;
-  }
-
-  .runner-container.inverted {
-    --ui-bg: #fff;
-    --ui-fg: #535353;
-    --ui-line: #c4c4c4;
   }
 }
 
