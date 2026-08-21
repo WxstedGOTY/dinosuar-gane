@@ -147,9 +147,9 @@
 
     this.config = {
       WIDTH: 44,
-      HEIGHT: 48,
-      WIDTH_DUCK: 60,
-      HEIGHT_DUCK: 28,
+      HEIGHT: 47,
+      WIDTH_DUCK: 59,
+      HEIGHT_DUCK: 30,
       START_X_POS: 30,
       INITIAL_JUMP_VELOCITY: -10,
       DROP_VELOCITY: -5,
@@ -159,20 +159,25 @@
       MIN_JUMP_HEIGHT: 30
     };
 
-    // Boxes below are measured off the sprite grids in sprites.js.
+    // Measured straight off the sprite grids in sprites.js, one box per
+    // contiguous run of pixels so no box ever spans a gap.
     this.collisionBoxes = {
       RUNNING: [
-        new CollisionBox(24, 1, 19, 16),   // head and jaw
-        new CollisionBox(17, 18, 18, 6),   // neck
-        new CollisionBox(2, 21, 6, 6),     // tail
-        new CollisionBox(6, 24, 30, 8),    // torso
-        new CollisionBox(9, 32, 20, 4),    // hips
-        new CollisionBox(9, 36, 19, 12)    // legs
+        new CollisionBox(19, 0, 24, 20),   // head and jaw
+        new CollisionBox(4, 20, 5, 2),     // tail tip
+        new CollisionBox(19, 20, 15, 2),   // neck
+        new CollisionBox(2, 22, 11, 2),    // tail
+        new CollisionBox(17, 22, 16, 2),   // neck
+        new CollisionBox(1, 24, 33, 4),    // shoulder
+        new CollisionBox(4, 28, 31, 7),    // body
+        new CollisionBox(9, 35, 7, 12),    // back leg
+        new CollisionBox(20, 35, 7, 12)    // front leg
       ],
       DUCKING: [
-        new CollisionBox(42, 2, 16, 10),   // head
-        new CollisionBox(4, 12, 44, 8),    // flattened body
-        new CollisionBox(6, 20, 24, 7)     // legs
+        new CollisionBox(39, 2, 19, 10),   // head
+        new CollisionBox(1, 12, 55, 9),    // flattened body
+        new CollisionBox(9, 21, 7, 9),     // back leg
+        new CollisionBox(23, 21, 5, 9)     // front leg
       ]
     };
 
@@ -409,31 +414,33 @@
     {
       type: 'CACTUS_SMALL',
       sprite: 'cactusSmall',
-      width: 18,
-      height: 34,
-      yPos: GROUND_Y - 34,
+      width: 17,
+      height: 35,
+      yPos: GROUND_Y - 35,
       multipleSpeed: 4,
       minGap: 120,
       minSpeed: 0,
       collisionBoxes: [
-        new CollisionBox(6, 0, 6, 34),    // trunk
-        new CollisionBox(0, 8, 4, 10),    // left arm
-        new CollisionBox(14, 12, 4, 10)   // right arm
+        new CollisionBox(1, 0, 2, 13),    // left arm
+        new CollisionBox(6, 0, 5, 13),    // trunk
+        new CollisionBox(1, 13, 15, 12),  // arms and elbows
+        new CollisionBox(6, 25, 5, 10)    // trunk
       ]
     },
     {
       type: 'CACTUS_LARGE',
       sprite: 'cactusLarge',
-      width: 26,
+      width: 25,
       height: 50,
       yPos: GROUND_Y - 50,
       multipleSpeed: 7,
       minGap: 120,
       minSpeed: 0,
       collisionBoxes: [
-        new CollisionBox(10, 0, 8, 50),   // trunk
-        new CollisionBox(2, 10, 4, 14),   // left arm
-        new CollisionBox(20, 16, 4, 16)   // right arm
+        new CollisionBox(2, 0, 3, 16),    // left arm
+        new CollisionBox(9, 0, 7, 16),    // trunk
+        new CollisionBox(2, 16, 21, 17),  // arms and elbows
+        new CollisionBox(9, 33, 7, 17)    // trunk
       ]
     },
     {
@@ -454,8 +461,8 @@
       // Only the body and beak collide -- the wing sweeps between frames and
       // hitting one would feel arbitrary.
       collisionBoxes: [
-        new CollisionBox(0, 22, 8, 5),    // beak
-        new CollisionBox(4, 19, 22, 7)    // head and body
+        new CollisionBox(1, 16, 31, 5),   // upper body and beak
+        new CollisionBox(1, 21, 30, 4)    // lower body
       ]
     }
   ];
@@ -562,8 +569,8 @@
   /** @constructor */
   function Cloud(canvasCtx, containerWidth) {
     this.ctx = canvasCtx;
-    this.width = 40;
-    this.height = 16;
+    this.width = 46;
+    this.height = 14;
     this.xPos = containerWidth;
     this.yPos = randomNum(20, 70);
     this.remove = false;
@@ -624,24 +631,48 @@
      */
     paintTile: function (canvas) {
       var ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, this.tileWidth, this.tileHeight);
+      var w = this.tileWidth;
+      ctx.clearRect(0, 0, w, this.tileHeight);
       ctx.fillStyle = '#535353';
 
-      ctx.fillRect(0, LINE_TOP, this.tileWidth, 2);
+      // The line itself: one pixel, not two. The texture comes from what sits
+      // on it, not from its thickness.
+      ctx.fillRect(0, LINE_TOP, w, 1);
 
-      var x = randomNum(20, 120);
-      while (x < this.tileWidth - 12) {
-        var moundWidth = randomNum(3, 10);
-        var moundHeight = Math.random() < 0.3 ? 2 : 1;
-        ctx.fillRect(x, LINE_TOP - moundHeight, moundWidth, moundHeight);
-        x += moundWidth + randomNum(30, 150);
+      // Bumps riding along the top, close enough together to read as rough
+      // ground rather than a handful of isolated lumps.
+      var x = randomNum(0, 10);
+      while (x < w) {
+        var bumpWidth = randomNum(2, 7);
+        var bumpHeight = randomNum(1, 2);
+        ctx.fillRect(x, LINE_TOP - bumpHeight,
+                     Math.min(bumpWidth, w - x), bumpHeight);
+        x += bumpWidth + randomNum(4, 24);
       }
 
-      var speckCount = randomNum(12, 22);
-      for (var i = 0; i < speckCount; i++) {
-        var sx = randomNum(0, this.tileWidth - 2);
-        var sy = randomNum(LINE_TOP + 4, this.tileHeight - 2);
-        ctx.fillRect(sx, sy, Math.random() < 0.35 ? 2 : 1, 1);
+      // Shallow dips where the line steps down a pixel. Without these it
+      // still reads as a ruled line with decoration on top.
+      var dips = randomNum(4, 8);
+      for (var d = 0; d < dips; d++) {
+        var dipX = randomNum(0, w - 9);
+        var dipWidth = randomNum(3, 8);
+        ctx.clearRect(dipX, LINE_TOP, dipWidth, 1);
+        ctx.fillRect(dipX, LINE_TOP + 1, dipWidth, 1);
+      }
+
+      // Grit underneath, scattered in loose clusters rather than evenly, which
+      // is what gives the ground its unsettled look.
+      var clusters = randomNum(16, 24);
+      for (var c = 0; c < clusters; c++) {
+        var centre = randomNum(0, w - 1);
+        var grains = randomNum(2, 5);
+        for (var g = 0; g < grains; g++) {
+          var gx = centre + randomNum(-7, 7);
+          var gy = randomNum(LINE_TOP + 2, this.tileHeight - 1);
+          if (gx >= 0 && gx < w) {
+            ctx.fillRect(gx, gy, Math.random() < 0.25 ? 2 : 1, 1);
+          }
+        }
       }
     },
 

@@ -155,10 +155,26 @@ so the two cannot drift apart.
 ## Artwork
 
 Every sprite -- the runner, the cacti, the pterodactyl, the clouds and the
-5x7 score font -- is defined as a pixel grid in `js/sprites.js` and drawn onto
-offscreen canvases when the page loads. Nothing is copied from anyone else's
-sprite sheet and there are no image files to ship. Sound is three synthesised
-WebAudio blips, so there are no audio files either.
+10x13 score font -- is defined as a pixel grid in `js/sprites.js` and drawn
+onto offscreen canvases when the page loads. Nothing is copied from anyone
+else's sprite sheet and there are no image files to ship. Sound is three
+synthesised WebAudio blips, so there are no audio files either.
+
+Everything is authored at 1x, at the sizes the original draws: 44x47 for the
+runner, 59x30 ducking, 17x35 and 25x50 for the cacti, 46x40 for the
+pterodactyl, 46x14 for a cloud. An earlier version drew half-resolution grids
+scaled up by two, which meant every apparent pixel was really a 2x2 block --
+about a quarter of the original's detail, and visibly coarse once the canvas
+filled a window.
+
+Collision boxes are measured off those grids rather than estimated, one box per
+contiguous run of pixels so that no box spans a gap: the space between the tail
+and the neck, or between a cactus arm and its trunk, must not count as solid.
+
+The ground is generated per tile rather than drawn once: a one pixel line, a
+bump every few pixels riding on top of it, a handful of shallow dips where the
+line steps down, and grit scattered underneath in loose clusters. The density
+is the point -- a sparse line reads as ruled, not as ground.
 
 ## What has been checked
 
