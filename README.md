@@ -47,6 +47,12 @@ obstacle: go too early and the T-Rex lands in front of it, too late and it
 never leaves the ground. Waiting keeps options open, so it holds until only a
 few frames of that window remain.
 
+Once airborne the arc is mostly committed, but the down key still works, and
+falling fast is the one move left. It drops the T-Rex under a high pterodactyl
+it would otherwise clip, and it lands sooner, which can buy back the frames
+needed to jump again before the next obstacle arrives. Mid-air it checks
+whether riding the arc out still ends well, and if not, whether dropping does.
+
 Two details make the prediction trustworthy:
 
 - The arc it plans against comes from `Trex.predictJump`, which runs the same
@@ -76,12 +82,18 @@ rejects every option and leaves nothing but panic jumps.
 ## Layout
 
 ```
-index.html        page shell and the settings panel
-css/style.css     page styling, night-mode inversion, dark-mode handling
-js/sprites.js     all artwork, as pixel grids rasterised at start-up
-js/game.js        physics, obstacles, collision, scoring, day/night cycle
-js/autopilot.js   hack mode
+index.html             page shell and the settings panel
+css/style.css          page styling, night-mode inversion, dark-mode handling
+js/sprites.js          all artwork, as pixel grids rasterised at start-up
+js/game.js             physics, obstacles, collision, scoring, day/night cycle
+js/autopilot.js        hack mode
+build-single-file.js   bundles all of the above into one HTML file
 ```
+
+`node build-single-file.js` writes `offline-runner.html`, a single file with
+everything inlined -- handy for dropping somewhere that only takes one file.
+The multi-file version stays the source of truth; the bundler only inlines it,
+so the two cannot drift apart.
 
 ## Artwork
 
@@ -90,6 +102,23 @@ Every sprite -- the runner, the cacti, the pterodactyl, the clouds and the
 offscreen canvases when the page loads. Nothing is copied from anyone else's
 sprite sheet and there are no image files to ship. Sound is three synthesised
 WebAudio blips, so there are no audio files either.
+
+## What has been checked
+
+Driven through a headless browser:
+
+- Every obstacle the game can spawn -- both cacti at each group size, the
+  pterodactyl at each of its three heights -- across speeds 6 to 13.
+  54 of 54 cleared.
+- Collision boxes against the drawn pixels: 13 cases covering what should and
+  should not hit while standing, ducking and at the top of a jump. The high
+  pterodactyl is the interesting one -- harmless if you keep running, fatal if
+  you panic-jump into it.
+- A ten minute autopilot run at maximum speed: score 11,100, no deaths, 15
+  night cycles, no console errors.
+- The mid-air fast-fall, run twice per case with the recovery enabled and
+  stubbed out: it turned a death into a survival in 8 of 24 cases and never
+  made one worse.
 
 ## Scope
 

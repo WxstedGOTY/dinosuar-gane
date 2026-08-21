@@ -23,7 +23,7 @@
   var TREX_TOP = [
     '............#########.',
     '...........###########',
-    '...........###########',
+    '...........######oo###',
     '...........######oo###',
     '...........###########',
     '...........###########',
@@ -199,14 +199,14 @@
   // ---------------------------------------------------------------- Scenery --
 
   var CLOUD = [
-    '.....######.........',
-    '...##########.......',
-    '..############......',
-    '.###############....',
+    '......#####.........',
+    '....#########.......',
+    '...###########......',
+    '..#############.....',
     '.################...',
-    '..##############....',
-    '....##########......',
-    '....................'
+    '.#################..',
+    '..###############...',
+    '....###########.....'
   ];
 
   // ------------------------------------------------------------------- Font --
@@ -238,6 +238,71 @@
     'V': ['#...#', '#...#', '#...#', '#...#', '#...#', '.#.#.', '..#..'],
     ' ': ['.....', '.....', '.....', '.....', '.....', '.....', '.....']
   };
+
+  // ---------------------------------------------------------------- Restart --
+
+  /**
+   * The restart button: a ring with a bite taken out of the top right and an
+   * arrow head on the loose end. Generated rather than hand-drawn so the ring
+   * stays perfectly symmetrical, but still built one whole cell at a time so
+   * it matches the rest of the artwork instead of being a smooth arc.
+   * @param {number} size grid cells across
+   * @return {!Array<string>}
+   */
+  function buildRestartGrid(size) {
+    var centre = (size - 1) / 2;
+    var outer = size / 2 - 0.6;
+    var inner = outer - 2.6;
+
+    // The ring is open from just past the top round to three o'clock. Angles
+    // run clockwise from due right, so -PI/2 is straight up.
+    var gapFrom = -Math.PI * 0.46;
+    var gapTo = -Math.PI * 0.17;
+
+    var cells = [];
+    var x, y;
+    for (y = 0; y < size; y++) {
+      cells.push([]);
+      for (x = 0; x < size; x++) {
+        var dx = x - centre;
+        var dy = y - centre;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        var angle = Math.atan2(dy, dx);
+        var onRing = dist <= outer && dist >= inner;
+        var inGap = angle >= gapFrom && angle <= gapTo;
+        cells[y].push(onRing && !inGap);
+      }
+    }
+
+    // Arrow head: a solid triangle capping the open end of the ring, its base
+    // across the ring's width and its point leading the way the ring turns.
+    var mid = (outer + inner) / 2;
+    var baseX = centre + Math.cos(gapFrom) * mid;
+    var baseY = centre + Math.sin(gapFrom) * mid;
+    var half = (outer - inner) / 2 + 0.6;
+    var reach = 4.4;
+
+    for (y = 0; y < size; y++) {
+      for (x = 0; x < size; x++) {
+        var ax = x - baseX;
+        var ay = y - baseY;
+        if (ax >= -0.7 && ax <= reach &&
+            Math.abs(ay) <= half * (1 - ax / reach) + 0.4) {
+          cells[y][x] = true;
+        }
+      }
+    }
+
+    var grid = [];
+    for (y = 0; y < size; y++) {
+      var row = '';
+      for (x = 0; x < size; x++) {
+        row += cells[y][x] ? '#' : '.';
+      }
+      grid.push(row);
+    }
+    return grid;
+  }
 
   // ------------------------------------------------------------- Rasterising --
 
@@ -319,7 +384,8 @@
         cactusLarge: rasterise(CACTUS_LARGE, SCALE, colour),
         pterodactyl1: rasterise(PTERODACTYL_1, SCALE, colour),
         pterodactyl2: rasterise(PTERODACTYL_2, SCALE, colour),
-        cloud: rasterise(CLOUD, SCALE, '#c8c8c8')
+        cloud: rasterise(CLOUD, SCALE, '#c8c8c8'),
+        restart: rasterise(buildRestartGrid(18), SCALE, colour)
       };
 
       this.glyphs = {};

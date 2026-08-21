@@ -17,7 +17,9 @@ body {
   padding: 24px 16px;
   background: #fff;
   color: #535353;
-  font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  /* Monospace throughout, so the text around the canvas sits with the pixel
+     font drawn inside it rather than against it. */
+  font-family: "DejaVu Sans Mono", "Liberation Mono", Menlo, Consolas, monospace;
   /* Stop the page bouncing when you tap to jump on a phone. */
   overscroll-behavior: none;
   -webkit-user-select: none;
@@ -104,7 +106,7 @@ body {
   color: inherit;
   opacity: 0.45;
   cursor: pointer;
-  transition: opacity 0.15s ease, transform 0.25s ease;
+  transition: opacity 0.15s ease;
 }
 
 .settings__toggle svg {
@@ -121,13 +123,11 @@ body {
 
 .settings__toggle[aria-expanded="true"] {
   opacity: 1;
-  transform: rotate(45deg);
 }
 
 .settings__badge {
   padding: 1px 4px;
-  border: 1px solid currentColor;
-  border-radius: 2px;
+  border: 2px solid currentColor;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -140,8 +140,7 @@ body {
   left: 0;
   width: 168px;
   padding: 8px 10px 9px;
-  border: 1px solid var(--ui-line);
-  border-radius: 3px;
+  border: 2px solid var(--ui-line);
   background: var(--ui-bg);
   text-align: left;
 }
@@ -203,8 +202,7 @@ body {
   display: inline-block;
   min-width: 20px;
   padding: 2px 6px;
-  border: 1px solid currentColor;
-  border-radius: 3px;
+  border: 2px solid currentColor;
   font: inherit;
   font-size: 11px;
   opacity: 0.9;

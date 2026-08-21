@@ -177,6 +177,63 @@
     },
 
     /**
+     * Walk one full plan and report whether it survives: finish the fall the
+     * T-Rex is already in, land, wait, then jump again.
+     * @param {!Array<number>} fall remaining descent, ending on the ground
+     * @param {!Array<number>} jump arc of the re-jump
+     * @param {number} jumpFrame frame the re-jump starts on
+     * @param {!Array<!Object>} obstacles
+     * @return {boolean}
+     */
+    pathSurvives: function (fall, jump, jumpFrame, obstacles) {
+      var trex = this.runner.trex;
+      var target = obstacles[0];
+
+      for (var v = 0; v < STEP_VARIANTS; v++) {
+        for (var f = 1; f <= HORIZON; f++) {
+          var y;
+          if (f <= fall.length) {
+            y = fall[f - 1];
+          } else if (f < jumpFrame) {
+            y = trex.groundYPos;
+          } else {
+            var step = f - jumpFrame;
+            y = step < jump.length ? jump[step] : trex.groundYPos;
+          }
+
+          if (this.hits(y, false, obstacles, f, v)) return false;
+
+          if (y >= trex.groundYPos && f >= jumpFrame &&
+              target.x - target.steps[v] * f + target.width < trex.xPos) {
+            break;
+          }
+        }
+      }
+      return true;
+    },
+
+    /**
+     * Mid-air, is there any way out of this jump? Tries landing and re-jumping
+     * at every opportunity.
+     * @param {boolean} speedDrop whether to fall fast
+     * @return {boolean}
+     */
+    recoverable: function (speedDrop) {
+      var trex = this.runner.trex;
+      var speed = this.runner.currentSpeed;
+      var obstacles = this.snapshot(speed);
+      if (!obstacles.length) return true;
+
+      var fall = trex.predictArc(trex.yPos, trex.jumpVelocity, speedDrop, HORIZON);
+      var jump = this.jumpArc(speed);
+
+      for (var d = 0; d <= MAX_DELAY; d++) {
+        if (this.pathSurvives(fall, jump, fall.length + d, obstacles)) return true;
+      }
+      return false;
+    },
+
+    /**
      * How many more frames the T-Rex could wait and still clear everything.
      * @return {number} largest safe delay, capped at MAX_DELAY
      */
@@ -203,8 +260,16 @@
       // The player always wins. While a key is held, stand down completely.
       if (r.manualControl) return;
 
-      // Mid-air the arc is already committed -- nothing left to decide.
-      if (trex.jumping) return;
+      // Mid-air the arc is mostly committed, but the down key still works, and
+      // it is the one move left: falling fast drops under a high pterodactyl
+      // and lands sooner, which can buy back the frames needed to re-jump
+      // before the next obstacle arrives.
+      if (trex.jumping) {
+        if (!trex.speedDrop && !this.recoverable(false) && this.recoverable(true)) {
+          trex.setSpeedDrop();
+        }
+        return;
+      }
 
       if (this.survives('run', 0)) {
         if (trex.ducking) trex.setDuck(false);

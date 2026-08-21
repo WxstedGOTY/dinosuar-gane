@@ -1,3 +1,1058 @@
+<title>Offline Runner</title>
+<meta name="robots" content="noindex, nofollow, noarchive, noimageindex">
+
+<style>
+/* Offline Runner -- personal project, self-contained, no external assets. */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: #fff;
+  color: #535353;
+  /* Monospace throughout, so the text around the canvas sits with the pixel
+     font drawn inside it rather than against it. */
+  font-family: "DejaVu Sans Mono", "Liberation Mono", Menlo, Consolas, monospace;
+  /* Stop the page bouncing when you tap to jump on a phone. */
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.page {
+  width: 100%;
+  max-width: 600px;
+  text-align: center;
+}
+
+.page__title {
+  margin: 0 0 18px;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.runner-container {
+  position: relative;
+  width: 100%;
+
+  /* Colours for UI drawn over the canvas. These follow the canvas rather than
+     the page, because night mode inverts the canvas underneath them. */
+  --ui-bg: #fff;
+  --ui-fg: #535353;
+  --ui-line: #c4c4c4;
+}
+
+.runner-canvas {
+  display: block;
+  width: 600px;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 1;
+  margin: 0 auto;
+  background: #fff;
+  /* Keep the pixel art crisp when the canvas is scaled down on narrow screens. */
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  touch-action: none;
+  cursor: pointer;
+  transition: filter 0.6s ease;
+}
+
+/* Night mode. The game flips the whole canvas rather than repainting it,
+   which is how the original does it too. */
+.runner-container.inverted .runner-canvas {
+  filter: invert(1);
+}
+
+.runner-container.inverted {
+  --ui-bg: #1c1c1c;
+  --ui-fg: #cfcfcf;
+  --ui-line: #4a4a4a;
+}
+
+/* ------------------------------------------------------------- Settings -- */
+
+.settings {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--ui-fg);
+}
+
+.settings__toggle {
+  display: block;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  opacity: 0.45;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.settings__toggle svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+.settings__toggle:hover,
+.settings__toggle:focus-visible {
+  opacity: 1;
+}
+
+.settings__toggle[aria-expanded="true"] {
+  opacity: 1;
+}
+
+.settings__badge {
+  padding: 1px 4px;
+  border: 2px solid currentColor;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  opacity: 0.6;
+}
+
+.settings__panel {
+  position: absolute;
+  top: 24px;
+  left: 0;
+  width: 168px;
+  padding: 8px 10px 9px;
+  border: 2px solid var(--ui-line);
+  background: var(--ui-bg);
+  text-align: left;
+}
+
+.settings__panel[hidden] {
+  display: none;
+}
+
+.settings__heading {
+  margin: 0 0 7px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.settings__option {
+  display: flex;
+  gap: 7px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.settings__option input {
+  flex: none;
+  margin: 2px 0 0;
+  accent-color: currentColor;
+}
+
+.settings__option strong {
+  display: block;
+  font-weight: 600;
+}
+
+.settings__desc {
+  display: block;
+  opacity: 0.55;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.hint {
+  margin: 20px 0 0;
+  font-size: 12px;
+  line-height: 2;
+  opacity: 0.55;
+}
+
+.hint kbd {
+  display: inline-block;
+  min-width: 20px;
+  padding: 2px 6px;
+  border: 2px solid currentColor;
+  font: inherit;
+  font-size: 11px;
+  opacity: 0.9;
+}
+
+.runner-container.muted ~ .hint {
+  opacity: 0.3;
+}
+
+/* On a dark page the canvas starts inverted, so night mode flips it back --
+   the same trade the original makes. */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #202124;
+    color: #c8c8c8;
+  }
+
+  .runner-canvas {
+    filter: invert(1);
+  }
+
+  .runner-container.inverted .runner-canvas {
+    filter: none;
+  }
+
+  .runner-container {
+    --ui-bg: #1c1c1c;
+    --ui-fg: #cfcfcf;
+    --ui-line: #4a4a4a;
+  }
+
+  .runner-container.inverted {
+    --ui-bg: #fff;
+    --ui-fg: #535353;
+    --ui-line: #c4c4c4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .runner-canvas {
+    transition: none;
+  }
+}
+</style>
+
+<main class="page">
+  <h1 class="page__title">Offline Runner</h1>
+
+  <div class="runner-container">
+    <canvas class="runner-canvas" role="img"
+            aria-label="A running dinosaur jumping over cacti"></canvas>
+
+    <div class="settings">
+      <button type="button" class="settings__toggle" aria-expanded="false"
+              aria-controls="settings-panel" title="Game settings">
+        <span class="visually-hidden">Game settings</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M19.14 12.94a7.4 7.4 0 0 0 0-1.88l2.03-1.58a.48.48 0 0 0 .12-.61l-1.92-3.32a.48.48 0 0 0-.59-.22l-2.39.96a7 7 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58a7.4 7.4 0 0 0 0 1.88l-2.03 1.58a.48.48 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.04.24.23.41.47.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.12-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.48.48 0 0 0-.12-.61l-2.03-1.58ZM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2Z"/>
+        </svg>
+      </button>
+
+      <span class="settings__badge" hidden>AUTO</span>
+
+      <div class="settings__panel" id="settings-panel" role="group"
+           aria-label="Mode" hidden>
+        <p class="settings__heading">Mode</p>
+
+        <label class="settings__option">
+          <input type="radio" name="mode" value="normal" checked>
+          <span>
+            <strong>Normal</strong>
+            <span class="settings__desc">You play it.</span>
+          </span>
+        </label>
+
+        <label class="settings__option">
+          <input type="radio" name="mode" value="hack">
+          <span>
+            <strong>Hack mode</strong>
+            <span class="settings__desc">It plays itself.</span>
+          </span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <p class="hint">
+    <kbd>Space</kbd> or <kbd>&uarr;</kbd> to jump &middot;
+    <kbd>&darr;</kbd> to duck &middot;
+    <kbd>M</kbd> to mute &middot;
+    tap to play on touch
+  </p>
+</main>
+
+<script>
+/*
+ * sprites.js
+ *
+ * All artwork for the game is drawn here as pixel grids and rasterised onto
+ * offscreen canvases at start-up. Nothing is loaded from the network and no
+ * third-party image assets are used -- every sprite below is hand-authored
+ * pixel art.
+ *
+ * Grid legend:
+ *   '#'  solid pixel
+ *   'o'  hole (left transparent -- used for eyes / mouths)
+ *   '.'  empty
+ */
+
+(function (global) {
+  'use strict';
+
+  var SCALE = 2; // one grid cell === SCALE x SCALE device-independent pixels
+
+  // ---------------------------------------------------------------- T-Rex --
+
+  // Shared upper body: head, jaw, neck, tail, torso and forelimb.
+  var TREX_TOP = [
+    '............#########.',
+    '...........###########',
+    '...........######oo###',
+    '...........######oo###',
+    '...........###########',
+    '...........###########',
+    '...........###########',
+    '...........###########',
+    '...........#####...###',
+    '.........#########....',
+    '.#......##########....',
+    '.##....###########....',
+    '.###.#############....',
+    '.#################....',
+    '..##################..',
+    '...##############.##..',
+    '....###########...#...',
+    '.....#########........'
+  ];
+
+  var TREX_LEGS_IDLE = [
+    '.....####.####........',
+    '.....###..###.........',
+    '.....###..###.........',
+    '.....##...###.........',
+    '.....##...###.........',
+    '...#####..#####.......'
+  ];
+
+  var TREX_LEGS_RUN_1 = [
+    '.....####.####........',
+    '.....###..###.........',
+    '.....###..###.........',
+    '.....###..###.........',
+    '...#####..##..........',
+    '..######..............'
+  ];
+
+  var TREX_LEGS_RUN_2 = [
+    '.....####.####........',
+    '.....###..###.........',
+    '.....###..###.........',
+    '......##..###.........',
+    '......##..#####.......',
+    '..........######......'
+  ];
+
+  // Ducking: the whole animal flattens out and stretches forwards.
+  var TREX_DUCK_TOP = [
+    '......................#######.',
+    '.....................#########',
+    '.....................#########',
+    '.....................#####oo##',
+    '.....................#########',
+    '...................######...##',
+    '..#######################.....',
+    '.#######################......',
+    '..####################........',
+    '...################...........'
+  ];
+
+  var TREX_DUCK_LEGS_1 = [
+    '....##########................',
+    '....###...####................',
+    '....###....###................',
+    '..#####....###................'
+  ];
+
+  var TREX_DUCK_LEGS_2 = [
+    '....##########................',
+    '....###...####................',
+    '.....##....###................',
+    '.....##....#####..............'
+  ];
+
+  // -------------------------------------------------------------- Obstacles --
+
+  var CACTUS_SMALL = [
+    '...###...',
+    '...###...',
+    '...###...',
+    '...###...',
+    '##.###...',
+    '##.###...',
+    '##.###.##',
+    '######.##',
+    '######.##',
+    '...######',
+    '...######',
+    '...###...',
+    '...###...',
+    '...###...',
+    '...###...',
+    '...###...',
+    '...###...'
+  ];
+
+  var CACTUS_LARGE = [
+    '.....####....',
+    '.....####....',
+    '.....####....',
+    '.....####....',
+    '.....####....',
+    '.##..####....',
+    '.##..####....',
+    '.##..####....',
+    '.##..####.##.',
+    '.##..####.##.',
+    '.########.##.',
+    '.########.##.',
+    '.....####.##.',
+    '.....####.##.',
+    '.....########',
+    '.....########',
+    '.....####....',
+    '.....####....',
+    '.....####....',
+    '.....####....',
+    '.....####....',
+    '.....####....',
+    '.....####....',
+    '.....####....',
+    '.....####....'
+  ];
+
+  // Facing left, into its direction of travel: beak and open mouth on the
+  // left, body across the middle, and one swept wing that alternates up and
+  // down. The body occupies the same rows in both frames, which is what lets a
+  // single set of collision boxes stay correct across the flap.
+  var PTERODACTYL_1 = [
+    '...............######..',
+    '..............######...',
+    '.............######....',
+    '............######.....',
+    '...........######......',
+    '..........######.......',
+    '.........######........',
+    '........######.........',
+    '.......######..........',
+    '..#########............',
+    '############...........',
+    '############...........',
+    '###...#######..........',
+    '.........########......',
+    '..............######...',
+    '..................###..',
+    '.......................',
+    '.......................',
+    '.......................',
+    '.......................'
+  ];
+
+  var PTERODACTYL_2 = [
+    '.......................',
+    '.......................',
+    '.......................',
+    '.......................',
+    '.......................',
+    '.......................',
+    '.......................',
+    '.......................',
+    '.......................',
+    '..#########............',
+    '############...........',
+    '############...........',
+    '###...#######..........',
+    '.......#######.........',
+    '........######.........',
+    '.........######........',
+    '..........######.......',
+    '...........######......',
+    '............######.....',
+    '.............######....'
+  ];
+
+  // ---------------------------------------------------------------- Scenery --
+
+  var CLOUD = [
+    '......#####.........',
+    '....#########.......',
+    '...###########......',
+    '..#############.....',
+    '.################...',
+    '.#################..',
+    '..###############...',
+    '....###########.....'
+  ];
+
+  // ------------------------------------------------------------------- Font --
+
+  // 5x7 pixel font. Only the glyphs the game actually renders are defined.
+  var FONT = {
+    '0': ['#####', '#...#', '#...#', '#...#', '#...#', '#...#', '#####'],
+    '1': ['..#..', '.##..', '..#..', '..#..', '..#..', '..#..', '#####'],
+    '2': ['#####', '....#', '....#', '#####', '#....', '#....', '#####'],
+    '3': ['#####', '....#', '....#', '#####', '....#', '....#', '#####'],
+    '4': ['#...#', '#...#', '#...#', '#####', '....#', '....#', '....#'],
+    '5': ['#####', '#....', '#....', '#####', '....#', '....#', '#####'],
+    '6': ['#####', '#....', '#....', '#####', '#...#', '#...#', '#####'],
+    '7': ['#####', '....#', '....#', '...#.', '..#..', '..#..', '..#..'],
+    '8': ['#####', '#...#', '#...#', '#####', '#...#', '#...#', '#####'],
+    '9': ['#####', '#...#', '#...#', '#####', '....#', '....#', '#####'],
+    'A': ['.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
+    'C': ['.####', '#....', '#....', '#....', '#....', '#....', '.####'],
+    'E': ['#####', '#....', '#....', '####.', '#....', '#....', '#####'],
+    'G': ['.####', '#....', '#....', '#.###', '#...#', '#...#', '.###.'],
+    'H': ['#...#', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
+    'I': ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '#####'],
+    'M': ['#...#', '##.##', '#.#.#', '#...#', '#...#', '#...#', '#...#'],
+    'O': ['.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
+    'P': ['####.', '#...#', '#...#', '####.', '#....', '#....', '#....'],
+    'R': ['####.', '#...#', '#...#', '####.', '#.#..', '#..#.', '#...#'],
+    'S': ['.####', '#....', '#....', '.###.', '....#', '....#', '####.'],
+    'T': ['#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'],
+    'V': ['#...#', '#...#', '#...#', '#...#', '#...#', '.#.#.', '..#..'],
+    ' ': ['.....', '.....', '.....', '.....', '.....', '.....', '.....']
+  };
+
+  // ---------------------------------------------------------------- Restart --
+
+  /**
+   * The restart button: a ring with a bite taken out of the top right and an
+   * arrow head on the loose end. Generated rather than hand-drawn so the ring
+   * stays perfectly symmetrical, but still built one whole cell at a time so
+   * it matches the rest of the artwork instead of being a smooth arc.
+   * @param {number} size grid cells across
+   * @return {!Array<string>}
+   */
+  function buildRestartGrid(size) {
+    var centre = (size - 1) / 2;
+    var outer = size / 2 - 0.6;
+    var inner = outer - 2.6;
+
+    // The ring is open from just past the top round to three o'clock. Angles
+    // run clockwise from due right, so -PI/2 is straight up.
+    var gapFrom = -Math.PI * 0.46;
+    var gapTo = -Math.PI * 0.17;
+
+    var cells = [];
+    var x, y;
+    for (y = 0; y < size; y++) {
+      cells.push([]);
+      for (x = 0; x < size; x++) {
+        var dx = x - centre;
+        var dy = y - centre;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        var angle = Math.atan2(dy, dx);
+        var onRing = dist <= outer && dist >= inner;
+        var inGap = angle >= gapFrom && angle <= gapTo;
+        cells[y].push(onRing && !inGap);
+      }
+    }
+
+    // Arrow head: a solid triangle capping the open end of the ring, its base
+    // across the ring's width and its point leading the way the ring turns.
+    var mid = (outer + inner) / 2;
+    var baseX = centre + Math.cos(gapFrom) * mid;
+    var baseY = centre + Math.sin(gapFrom) * mid;
+    var half = (outer - inner) / 2 + 0.6;
+    var reach = 4.4;
+
+    for (y = 0; y < size; y++) {
+      for (x = 0; x < size; x++) {
+        var ax = x - baseX;
+        var ay = y - baseY;
+        if (ax >= -0.7 && ax <= reach &&
+            Math.abs(ay) <= half * (1 - ax / reach) + 0.4) {
+          cells[y][x] = true;
+        }
+      }
+    }
+
+    var grid = [];
+    for (y = 0; y < size; y++) {
+      var row = '';
+      for (x = 0; x < size; x++) {
+        row += cells[y][x] ? '#' : '.';
+      }
+      grid.push(row);
+    }
+    return grid;
+  }
+
+  // ------------------------------------------------------------- Rasterising --
+
+  /**
+   * Turn a pixel grid into an offscreen canvas.
+   * @param {!Array<string>} grid
+   * @param {number} scale
+   * @param {string} colour
+   * @return {!HTMLCanvasElement}
+   */
+  function rasterise(grid, scale, colour) {
+    var cols = grid[0].length;
+    var rows = grid.length;
+    var canvas = document.createElement('canvas');
+    canvas.width = cols * scale;
+    canvas.height = rows * scale;
+
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = colour;
+
+    for (var y = 0; y < rows; y++) {
+      var row = grid[y];
+      var runStart = -1;
+      // Batch horizontal runs of solid pixels into single fillRect calls.
+      for (var x = 0; x <= cols; x++) {
+        var solid = x < cols && row.charAt(x) === '#';
+        if (solid && runStart === -1) {
+          runStart = x;
+        } else if (!solid && runStart !== -1) {
+          ctx.fillRect(runStart * scale, y * scale, (x - runStart) * scale, scale);
+          runStart = -1;
+        }
+      }
+    }
+    return canvas;
+  }
+
+  /** Stack a shared upper body on top of a set of legs. */
+  function join(top, legs) {
+    return top.concat(legs);
+  }
+
+  /** Swap the eye hole for a solid pixel -- used for the crashed T-Rex. */
+  function closeEye(grid) {
+    return grid.map(function (row) {
+      return row.replace('o', '#');
+    });
+  }
+
+  // ------------------------------------------------------------------- API --
+
+  var Sprites = {
+    SCALE: SCALE,
+    FONT_WIDTH: 5 * SCALE,
+    FONT_HEIGHT: 7 * SCALE,
+    LETTER_SPACING: SCALE,
+
+    /** @type {?Object<string, !HTMLCanvasElement>} */
+    images: null,
+
+    /** @type {?Object<string, !HTMLCanvasElement>} */
+    glyphs: null,
+
+    /**
+     * Build every sprite. Called once at boot.
+     * @param {string=} colour
+     */
+    build: function (colour) {
+      colour = colour || '#535353';
+
+      this.images = {
+        trexIdle: rasterise(join(TREX_TOP, TREX_LEGS_IDLE), SCALE, colour),
+        trexRun1: rasterise(join(TREX_TOP, TREX_LEGS_RUN_1), SCALE, colour),
+        trexRun2: rasterise(join(TREX_TOP, TREX_LEGS_RUN_2), SCALE, colour),
+        trexCrashed: rasterise(closeEye(join(TREX_TOP, TREX_LEGS_IDLE)), SCALE, colour),
+        trexDuck1: rasterise(join(TREX_DUCK_TOP, TREX_DUCK_LEGS_1), SCALE, colour),
+        trexDuck2: rasterise(join(TREX_DUCK_TOP, TREX_DUCK_LEGS_2), SCALE, colour),
+        cactusSmall: rasterise(CACTUS_SMALL, SCALE, colour),
+        cactusLarge: rasterise(CACTUS_LARGE, SCALE, colour),
+        pterodactyl1: rasterise(PTERODACTYL_1, SCALE, colour),
+        pterodactyl2: rasterise(PTERODACTYL_2, SCALE, colour),
+        cloud: rasterise(CLOUD, SCALE, '#c8c8c8'),
+        restart: rasterise(buildRestartGrid(18), SCALE, colour)
+      };
+
+      this.glyphs = {};
+      for (var ch in FONT) {
+        if (Object.prototype.hasOwnProperty.call(FONT, ch)) {
+          this.glyphs[ch] = rasterise(FONT[ch], SCALE, colour);
+        }
+      }
+    },
+
+    /**
+     * Width in pixels of a string rendered with the pixel font.
+     * @param {string} text
+     * @param {number=} extraSpacing
+     * @return {number}
+     */
+    measureText: function (text, extraSpacing) {
+      extraSpacing = extraSpacing || 0;
+      var advance = this.FONT_WIDTH + this.LETTER_SPACING + extraSpacing;
+      return text.length * advance - this.LETTER_SPACING - extraSpacing;
+    },
+
+    /**
+     * Draw a string using the pixel font.
+     * @param {!CanvasRenderingContext2D} ctx
+     * @param {string} text
+     * @param {number} x
+     * @param {number} y
+     * @param {number=} extraSpacing
+     */
+    drawText: function (ctx, text, x, y, extraSpacing) {
+      extraSpacing = extraSpacing || 0;
+      var advance = this.FONT_WIDTH + this.LETTER_SPACING + extraSpacing;
+      for (var i = 0; i < text.length; i++) {
+        var glyph = this.glyphs[text.charAt(i)];
+        if (glyph) {
+          ctx.drawImage(glyph, Math.round(x + i * advance), Math.round(y));
+        }
+      }
+    }
+  };
+
+  global.Sprites = Sprites;
+})(window);
+</script>
+<script>
+/*
+ * autopilot.js -- "hack mode".
+ *
+ * Rather than reacting at a hand-tuned distance, this rolls the world forward
+ * and asks what actually survives. Every frame it answers three questions:
+ *
+ *   - does doing nothing survive the next HORIZON frames?
+ *   - does ducking and holding it survive?
+ *   - does jumping survive, and how much longer could it be put off?
+ *
+ * The prediction runs the same jump physics the live T-Rex uses
+ * (Trex.predictJump) and the same collision boxes, so it cannot drift out of
+ * sync with the game.
+ */
+
+(function (global) {
+  'use strict';
+
+  // Frames of lookahead. Long enough to contain a whole jump arc at top speed.
+  var HORIZON = 70;
+
+  // Slack around obstacles when planning, to absorb the odd dropped frame.
+  var MARGIN_X = 4;
+  var MARGIN_Y = 2;
+
+  // The live game moves obstacles by Math.floor(speed * frames), so the true
+  // per-frame step is either floor(speed) or one pixel more depending on how
+  // long the frame took. Planning against a single average drifts several
+  // pixels over a jump arc, which is enough to clip a cactus, so every plan is
+  // checked against both extremes and only counts as safe if it survives both.
+  var STEP_VARIANTS = 2;
+
+  // How far ahead to look when measuring how much longer a jump can be put
+  // off, and how many of those frames to leave unspent when committing.
+  var MAX_DELAY = 12;
+  var LATE_CUSHION = 3;
+
+  function intersects(ax, ay, aw, ah, bx, by, bw, bh) {
+    return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+  }
+
+  /**
+   * @param {!Object} runner
+   * @constructor
+   */
+  function Autopilot(runner) {
+    this.runner = runner;
+    this.enabled = false;
+
+    this.arc = null;
+    this.arcKey = -1;
+  }
+
+  Autopilot.prototype = {
+    /** The jump arc only changes as the game speeds up, so cache it. */
+    jumpArc: function (speed) {
+      var key = Math.round(speed * 50);
+      if (this.arcKey !== key) {
+        this.arc = this.runner.trex.predictJump(speed, HORIZON + 5);
+        this.arcKey = key;
+      }
+      return this.arc;
+    },
+
+    /** Freeze the obstacle queue into plain numbers for the simulation. */
+    snapshot: function (speed) {
+      var live = this.runner.horizon.obstacles;
+      var trexX = this.runner.trex.xPos;
+      var out = [];
+      for (var i = 0; i < live.length; i++) {
+        var o = live[i];
+        // Anything already behind the T-Rex can never be hit again.
+        if (o.xPos + o.width < trexX) continue;
+
+        var slow = Math.floor(speed + o.speedOffset);
+        out.push({
+          x: o.xPos,
+          y: o.yPos,
+          steps: [slow, slow + 1],
+          size: o.size,
+          unitWidth: o.typeConfig.width,
+          width: o.width,
+          height: o.typeConfig.height,
+          boxes: o.typeConfig.collisionBoxes
+        });
+      }
+      return out;
+    },
+
+    /**
+     * Collision test for one simulated frame.
+     * @param {number} trexY
+     * @param {boolean} ducking
+     * @param {!Array<!Object>} obstacles
+     * @param {number} frame how many frames the obstacles have advanced
+     * @param {number} variant which per-frame obstacle step to assume
+     * @return {boolean}
+     */
+    hits: function (trexY, ducking, obstacles, frame, variant) {
+      var trex = this.runner.trex;
+      var boxes = ducking ? trex.collisionBoxes.DUCKING : trex.collisionBoxes.RUNNING;
+      var ty = ducking ? trex.duckYPos : trexY;
+      var tw = ducking ? trex.config.WIDTH_DUCK : trex.config.WIDTH;
+      var th = ducking ? trex.config.HEIGHT_DUCK : trex.config.HEIGHT;
+
+      for (var i = 0; i < obstacles.length; i++) {
+        var o = obstacles[i];
+        var ox = o.x - o.steps[variant] * frame;
+
+        // Whole-obstacle rejection before the per-part boxes.
+        if (!intersects(trex.xPos, ty, tw, th,
+                        ox - MARGIN_X, o.y - MARGIN_Y,
+                        o.width + MARGIN_X * 2, o.height + MARGIN_Y * 2)) {
+          continue;
+        }
+
+        for (var u = 0; u < o.size; u++) {
+          var ux = ox + u * o.unitWidth;
+          for (var b = 0; b < o.boxes.length; b++) {
+            var ob = o.boxes[b];
+            for (var t = 0; t < boxes.length; t++) {
+              var tb = boxes[t];
+              if (intersects(
+                    trex.xPos + tb.x, ty + tb.y, tb.width, tb.height,
+                    ux + ob.x - MARGIN_X, o.y + ob.y - MARGIN_Y,
+                    ob.width + MARGIN_X * 2, ob.height + MARGIN_Y * 2)) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+      return false;
+    },
+
+    /**
+     * Roll the world forward and report whether a plan survives.
+     * @param {string} plan 'run', 'duck' or 'jump'
+     * @param {number} delay frames to wait before a jump starts
+     * @param {number=} horizon frames to look ahead, defaults to HORIZON
+     * @return {boolean}
+     */
+    survives: function (plan, delay, horizon) {
+      var trex = this.runner.trex;
+      var speed = this.runner.currentSpeed;
+      var obstacles = this.snapshot(speed);
+      if (!obstacles.length) return true;
+
+      var frames = horizon || HORIZON;
+      var arc = plan === 'jump' ? this.jumpArc(speed) : null;
+      var ducking = plan === 'duck';
+      var target = obstacles[0];
+
+      for (var v = 0; v < STEP_VARIANTS; v++) {
+        for (var f = 1; f <= frames; f++) {
+          var y = trex.groundYPos;
+          if (arc) {
+            var step = f - delay - 1;
+            if (step >= 0) {
+              y = step < arc.length ? arc[step] : trex.groundYPos;
+            }
+          }
+          if (this.hits(y, ducking, obstacles, f, v)) return false;
+
+          // Stop once the obstacle being planned around has gone by and the
+          // T-Rex is back on the ground. Whatever is further out gets its own
+          // decision on a later frame, and a plan that only has to survive one
+          // action cannot be judged on obstacles it will jump separately --
+          // doing so rejects every option and leaves nothing but panic jumps.
+          if (y >= trex.groundYPos &&
+              target.x - target.steps[v] * f + target.width < trex.xPos) {
+            break;
+          }
+        }
+      }
+      return true;
+    },
+
+    /**
+     * Walk one full plan and report whether it survives: finish the fall the
+     * T-Rex is already in, land, wait, then jump again.
+     * @param {!Array<number>} fall remaining descent, ending on the ground
+     * @param {!Array<number>} jump arc of the re-jump
+     * @param {number} jumpFrame frame the re-jump starts on
+     * @param {!Array<!Object>} obstacles
+     * @return {boolean}
+     */
+    pathSurvives: function (fall, jump, jumpFrame, obstacles) {
+      var trex = this.runner.trex;
+      var target = obstacles[0];
+
+      for (var v = 0; v < STEP_VARIANTS; v++) {
+        for (var f = 1; f <= HORIZON; f++) {
+          var y;
+          if (f <= fall.length) {
+            y = fall[f - 1];
+          } else if (f < jumpFrame) {
+            y = trex.groundYPos;
+          } else {
+            var step = f - jumpFrame;
+            y = step < jump.length ? jump[step] : trex.groundYPos;
+          }
+
+          if (this.hits(y, false, obstacles, f, v)) return false;
+
+          if (y >= trex.groundYPos && f >= jumpFrame &&
+              target.x - target.steps[v] * f + target.width < trex.xPos) {
+            break;
+          }
+        }
+      }
+      return true;
+    },
+
+    /**
+     * Mid-air, is there any way out of this jump? Tries landing and re-jumping
+     * at every opportunity.
+     * @param {boolean} speedDrop whether to fall fast
+     * @return {boolean}
+     */
+    recoverable: function (speedDrop) {
+      var trex = this.runner.trex;
+      var speed = this.runner.currentSpeed;
+      var obstacles = this.snapshot(speed);
+      if (!obstacles.length) return true;
+
+      var fall = trex.predictArc(trex.yPos, trex.jumpVelocity, speedDrop, HORIZON);
+      var jump = this.jumpArc(speed);
+
+      for (var d = 0; d <= MAX_DELAY; d++) {
+        if (this.pathSurvives(fall, jump, fall.length + d, obstacles)) return true;
+      }
+      return false;
+    },
+
+    /**
+     * How many more frames the T-Rex could wait and still clear everything.
+     * @return {number} largest safe delay, capped at MAX_DELAY
+     */
+    slack: function () {
+      for (var d = 1; d <= MAX_DELAY; d++) {
+        if (!this.survives('jump', d)) return d - 1;
+      }
+      return MAX_DELAY;
+    },
+
+    /** One decision. Called once per frame while hack mode is on. */
+    step: function () {
+      var r = this.runner;
+      if (!this.enabled) return;
+
+      // Keep a run going: start when idle, restart once the crash clears.
+      if (!r.playing) {
+        r.handleJumpStart();
+        return;
+      }
+
+      var trex = r.trex;
+
+      // The player always wins. While a key is held, stand down completely.
+      if (r.manualControl) return;
+
+      // Mid-air the arc is mostly committed, but the down key still works, and
+      // it is the one move left: falling fast drops under a high pterodactyl
+      // and lands sooner, which can buy back the frames needed to re-jump
+      // before the next obstacle arrives.
+      if (trex.jumping) {
+        if (!trex.speedDrop && !this.recoverable(false) && this.recoverable(true)) {
+          trex.setSpeedDrop();
+        }
+        return;
+      }
+
+      if (this.survives('run', 0)) {
+        if (trex.ducking) trex.setDuck(false);
+        return;
+      }
+
+      if (this.survives('duck', 0)) {
+        if (!trex.ducking) trex.setDuck(true);
+        return;
+      }
+
+      // Anything else has to be jumped, so stand up first.
+      if (trex.ducking) trex.setDuck(false);
+
+      // There is a window of frames in which starting a jump clears the
+      // obstacle: jump before it and the T-Rex lands in front of the obstacle,
+      // jump after it and it never gets off the ground. Waiting keeps the
+      // options open, so hold on until only LATE_CUSHION frames of that window
+      // are left. Every delay tested here already had to survive both obstacle
+      // speeds, so the far edge is a measured limit rather than a guess.
+      if (this.survives('jump', 0)) {
+        if (this.slack() <= LATE_CUSHION) {
+          this.jump();
+        }
+        return;
+      }
+
+      // No plan is provably safe. If the hit is about to land, jumping is
+      // still a better bet than running into it.
+      if (!this.survives('run', 0, 4)) {
+        this.jump();
+      }
+    },
+
+    jump: function () {
+      var r = this.runner;
+      r.sound.jump();
+      r.trex.startJump(r.currentSpeed);
+    }
+  };
+
+  global.Autopilot = Autopilot;
+})(window);
+</script>
+<script>
 /*
  * game.js -- an offline-runner clone.
  *
@@ -1426,3 +2481,4 @@
     global.game = new Runner('.runner-container');
   });
 })(window);
+</script>
