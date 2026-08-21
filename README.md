@@ -3,8 +3,27 @@
 A from-scratch clone of the endless-runner game that browsers show when the
 network is down. Built for personal use.
 
-Open `index.html` in a browser. That's it -- no build step, no dependencies,
-no server, no network calls.
+The game fills the browser window, the way the original does once you start
+playing: the canvas scales up to the window and the page behind it is painted
+the same colour, so there is no border around the play area at any size.
+
+## Running it
+
+Either works, and neither reaches the network:
+
+```
+node serve.js            # then open http://localhost:8000/
+```
+
+or just open `index.html` in a browser. The server is worth using because some
+browsers refuse `localStorage` on `file://`, which is where the high score and
+your mode choice are kept.
+
+`serve.js` binds to `127.0.0.1`, so the page is reachable from that machine and
+nowhere else -- not the local network, not the internet. Pass a port to change
+it: `node serve.js 9000`. It has no dependencies.
+
+No build step, no packages to install, no network calls at any point.
 
 ## Controls
 
@@ -81,6 +100,18 @@ rejects every option and leaves nothing but panic jumps.
   page around the canvas follows the device.
 - The high score is kept in `localStorage` under `offline-runner.highScore`.
 
+## Fitting the window
+
+The canvas is stretched to the window by CSS, and the backing store is resized
+to match so the pixels stay square and hard-edged rather than being smeared by
+the browser. Everything in the game is still drawn in a fixed 600x150
+coordinate space, so the window size never touches physics, collision boxes or
+obstacle spacing -- a 4K screen plays exactly like a phone, just larger.
+
+At night the page background is repainted along with the canvas. Inverting
+white gives exactly black, so the two agree and the game reads as filling the
+screen instead of sitting in a lit frame.
+
 ## Why a run has no ceiling
 
 Difficulty is derived entirely from speed, and speed stops rising at 13, which
@@ -108,11 +139,12 @@ than whether the game gets too fast:
 
 ```
 index.html             page shell and the settings panel
-css/style.css          page styling, night-mode inversion, dark-mode handling
+css/style.css          full-window layout, night-mode inversion
 js/sprites.js          all artwork, as pixel grids rasterised at start-up
 js/game.js             physics, obstacles, collision, scoring, day/night cycle
 js/autopilot.js        hack mode
-build-single-file.js   bundles all of the above into one HTML file
+serve.js               localhost-only static server
+build-single-file.js   bundles the page into one HTML file
 ```
 
 `node build-single-file.js` writes `offline-runner.html`, a single file with

@@ -14,60 +14,57 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px 16px;
+  /* The game owns the window; nothing here should ever scroll. */
+  overflow: hidden;
   background: #fff;
   color: #535353;
-  /* Monospace throughout, so the text around the canvas sits with the pixel
-     font drawn inside it rather than against it. */
   font-family: "DejaVu Sans Mono", "Liberation Mono", Menlo, Consolas, monospace;
-  /* Stop the page bouncing when you tap to jump on a phone. */
   overscroll-behavior: none;
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.6s ease;
+
+  /* Colours for the chrome around the canvas. They follow the game rather than
+     the device, because night mode repaints the whole window. */
+  --ui-fg: #535353;
+  --ui-bg: #fff;
+  --ui-line: #c4c4c4;
+  color-scheme: light;
+}
+
+/* Night. The page goes with the canvas so the game reads as filling the
+   screen rather than sitting in a lit border. Inverting white gives exactly
+   black, so these two have to agree precisely. */
+body.inverted {
+  background: #000;
+  --ui-fg: #cfcfcf;
+  --ui-bg: #000;
+  --ui-line: #454545;
+  color-scheme: dark;
 }
 
 .page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
-  max-width: 600px;
-  text-align: center;
-}
-
-.page__title {
-  margin: 0 0 18px;
-  font-size: 15px;
-  font-weight: 400;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  opacity: 0.5;
+  height: 100%;
 }
 
 .runner-container {
   position: relative;
-  width: 100%;
-
-  /* Colours for UI drawn over the canvas. These follow the canvas rather than
-     the page, because night mode inverts the canvas underneath them. */
-  --ui-bg: #fff;
-  --ui-fg: #535353;
-  --ui-line: #c4c4c4;
-
-  /* Native controls paint themselves from color-scheme, not from the tokens
-     above, so it has to track the canvas too. Left to the page's own theme,
-     an unchecked radio renders as a solid light disc on the night panel and
-     reads as the selected one. */
-  color-scheme: light;
+  /* Fill the window, but never so wide that the 4:1 game outgrows its height. */
+  width: min(100vw, calc(100vh * 4));
 }
 
 .runner-canvas {
   display: block;
-  width: 600px;
-  max-width: 100%;
+  width: 100%;
   height: auto;
   aspect-ratio: 4 / 1;
-  margin: 0 auto;
   background: #fff;
-  /* Keep the pixel art crisp when the canvas is scaled down on narrow screens. */
+  /* Square, hard-edged pixels at any scale. */
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   touch-action: none;
@@ -75,43 +72,36 @@ body {
   transition: filter 0.6s ease;
 }
 
-/* Night mode. The game flips the whole canvas rather than repainting it,
-   which is how the original does it too. */
-.runner-container.inverted .runner-canvas {
+body.inverted .runner-canvas {
   filter: invert(1);
-}
-
-.runner-container.inverted {
-  --ui-bg: #1c1c1c;
-  --ui-fg: #cfcfcf;
-  --ui-line: #4a4a4a;
-  color-scheme: dark;
 }
 
 /* ------------------------------------------------------------- Settings -- */
 
+/* Pinned to the window's top right, clear of the score inside the canvas. */
 .settings {
-  position: absolute;
-  top: 6px;
-  left: 6px;
+  position: fixed;
+  top: 10px;
+  right: 10px;
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  line-height: 1.35;
+  justify-content: flex-end;
+  gap: 4px;
+  font-size: 10px;
+  line-height: 1.3;
   color: var(--ui-fg);
 }
 
 .settings__toggle {
   display: block;
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   padding: 0;
   border: 0;
   background: none;
   color: inherit;
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: pointer;
   transition: opacity 0.15s ease;
 }
@@ -133,21 +123,21 @@ body {
 }
 
 .settings__badge {
-  padding: 1px 4px;
-  border: 2px solid currentColor;
-  font-size: 9px;
+  padding: 0 3px;
+  border: 1px solid currentColor;
+  font-size: 8px;
   font-weight: 700;
-  letter-spacing: 0.1em;
-  opacity: 0.6;
+  letter-spacing: 0.08em;
+  opacity: 0.55;
 }
 
 .settings__panel {
   position: absolute;
-  top: 24px;
-  left: 0;
-  width: 168px;
-  padding: 8px 10px 9px;
-  border: 2px solid var(--ui-line);
+  top: 20px;
+  right: 0;
+  width: 124px;
+  padding: 5px 7px 6px;
+  border: 1px solid var(--ui-line);
   background: var(--ui-bg);
   text-align: left;
 }
@@ -157,24 +147,27 @@ body {
 }
 
 .settings__heading {
-  margin: 0 0 7px;
-  font-size: 9px;
+  margin: 0 0 4px;
+  font-size: 8px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   opacity: 0.5;
 }
 
 .settings__option {
   display: flex;
-  gap: 7px;
-  padding: 4px 0;
+  gap: 5px;
+  padding: 2px 0;
+  font-size: 10px;
   cursor: pointer;
 }
 
 .settings__option input {
   flex: none;
-  margin: 2px 0 0;
+  width: 10px;
+  height: 10px;
+  margin: 1px 0 0;
   accent-color: currentColor;
 }
 
@@ -185,6 +178,7 @@ body {
 
 .settings__desc {
   display: block;
+  font-size: 9px;
   opacity: 0.55;
 }
 
@@ -198,40 +192,50 @@ body {
   white-space: nowrap;
 }
 
+/* ----------------------------------------------------------------- Hint -- */
+
 .hint {
-  margin: 20px 0 0;
-  font-size: 12px;
-  line-height: 2;
-  opacity: 0.55;
+  position: fixed;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 2;
+  margin: 0;
+  font-size: 10px;
+  white-space: nowrap;
+  color: var(--ui-fg);
+  opacity: 0.4;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+/* Out of the way once a run is under way. */
+body.playing .hint {
+  opacity: 0;
 }
 
 .hint kbd {
   display: inline-block;
-  min-width: 20px;
-  padding: 2px 6px;
-  border: 2px solid currentColor;
+  min-width: 15px;
+  padding: 1px 4px;
+  border: 1px solid currentColor;
   font: inherit;
-  font-size: 11px;
-  opacity: 0.9;
+  font-size: 9px;
+  text-align: center;
 }
 
-.runner-container.muted ~ .hint {
-  opacity: 0.3;
-}
-
-/* The page around the canvas follows the reader's theme, but the game itself
-   deliberately does not: a run always starts in daylight and turns to night at
-   the first milestone, whichever theme the device is in. Inverting the canvas
-   to match a dark OS would run the day/night cycle backwards. */
-@media (prefers-color-scheme: dark) {
-  body {
-    background: #202124;
-    color: #c8c8c8;
+/* A narrow window cannot fit the hint on one line; the controls are
+   discoverable enough without it. */
+@media (max-width: 560px) {
+  .hint {
+    display: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .runner-canvas {
+  .runner-canvas,
+  body,
+  .hint {
     transition: none;
   }
 }

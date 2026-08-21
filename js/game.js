@@ -995,16 +995,43 @@
 
   Runner.prototype = {
     /** Size the backing store for the display's pixel density. */
+    /**
+     * Match the backing store to however large the stylesheet is showing the
+     * canvas, then stretch a fixed 600x150 drawing space over it.
+     *
+     * Everything else in the game -- physics, collision boxes, obstacle
+     * positions -- works in that fixed space and never learns the window size,
+     * so filling a 4K screen plays exactly like a phone.
+     */
     setupCanvas: function () {
       var dpr = global.devicePixelRatio || 1;
-      this.canvas.width = this.dimensions.WIDTH * dpr;
-      this.canvas.height = this.dimensions.HEIGHT * dpr;
-      // Width only -- leaving the height to the intrinsic aspect ratio means a
-      // narrow screen scales the game down instead of squashing it.
-      this.canvas.style.width = this.dimensions.WIDTH + 'px';
-      this.canvas.style.height = 'auto';
-      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      var rect = this.canvas.getBoundingClientRect();
+      var width = Math.max(1, Math.round(rect.width * dpr));
+      var height = Math.max(1, Math.round(rect.height * dpr));
+
+      // Assigning width or height wipes the context, so only do it on a real
+      // change and always restore the transform afterwards.
+      if (this.canvas.width !== width || this.canvas.height !== height) {
+        this.canvas.width = width;
+        this.canvas.height = height;
+      }
+
+      this.ctx.setTransform(width / this.dimensions.WIDTH, 0,
+                            0, height / this.dimensions.HEIGHT, 0, 0);
+      // Nearest-neighbour, so scaling up keeps the pixels square and hard
+      // edged instead of smearing them.
       this.ctx.imageSmoothingEnabled = false;
+    },
+
+    /** Re-fit after the window changes size or the device rotates. */
+    handleResize: function () {
+      var self = this;
+      if (this.resizeTimer) global.clearTimeout(this.resizeTimer);
+      this.resizeTimer = global.setTimeout(function () {
+        self.resizeTimer = null;
+        self.setupCanvas();
+        self.draw();
+      }, 80);
     },
 
     loadHighScore: function () {
@@ -1038,6 +1065,9 @@
       this.canvas.addEventListener('pointerdown', function (e) { self.onPointerDown(e); });
       this.canvas.addEventListener('pointerup', function (e) { self.onPointerUp(e); });
       this.canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+      global.addEventListener('resize', function () { self.handleResize(); });
+      global.addEventListener('orientationchange', function () { self.handleResize(); });
 
       document.addEventListener('visibilitychange', function () {
         if (document.hidden) {
@@ -1155,7 +1185,7 @@
         this.handleDuckStart();
       } else if (e.key === 'm' || e.key === 'M') {
         this.sound.muted = !this.sound.muted;
-        this.container.classList.toggle('muted', this.sound.muted);
+        this.setStateClass('muted', this.sound.muted);
       } else if (e.key === 'Escape') {
         this.openSettings(false);
       }
@@ -1254,7 +1284,7 @@
       this.crashed = false;
       this.runningTime = 0;
       this.trex.reset();
-      this.container.classList.add('playing');
+      this.setStateClass('playing', true);
       this.play();
     },
 
@@ -1269,7 +1299,7 @@
       this.distanceMeter.reset();
       this.horizon.reset();
       this.trex.reset();
-      this.container.classList.add('playing');
+      this.setStateClass('playing', true);
       this.play();
     },
 
@@ -1309,7 +1339,7 @@
       this.crashTime = global.performance.now();
       this.trex.status = 'CRASHED';
       this.trex.crashed = true;
-      this.container.classList.remove('playing');
+      this.setStateClass('playing', false);
 
       if (this.distanceRan > this.highestScore) {
         this.highestScore = Math.ceil(this.distanceRan);
@@ -1386,10 +1416,20 @@
       }
     },
 
+    /**
+     * Mirror a state class onto the page as well as the canvas wrapper. The
+     * settings and the hint sit outside the canvas now, and at night the page
+     * itself has to darken with it or the game ends up in a lit border.
+     */
+    setStateClass: function (name, on) {
+      this.container.classList.toggle(name, on);
+      document.body.classList.toggle(name, on);
+    },
+
     setInverted: function (inverted) {
       if (this.inverted === inverted) return;
       this.inverted = inverted;
-      this.container.classList.toggle('inverted', inverted);
+      this.setStateClass('inverted', inverted);
     },
 
     checkCollision: function () {
