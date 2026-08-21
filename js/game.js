@@ -18,12 +18,12 @@
   // Longest step a single frame may advance the world by: three frames' worth.
   var MAX_FRAME_TIME = 3 * (1000 / FPS);
 
-  // The y coordinate the T-Rex's feet rest on.
+  // The y the sprites stand on. The original works to a 150 tall canvas with a
+  // 10px bottom pad, which puts the ground here.
   var GROUND_Y = 140;
-  // Top of the horizon line.
-  var HORIZON_Y = 138;
-  // Where the line sits inside a horizon tile, leaving room for mounds above it.
-  var LINE_TOP = 2;
+  // The ground tile is 12 tall with its line on row 4, so drawing it here puts
+  // that line on GROUND_Y - 2, just under the feet.
+  var HORIZON_Y = 134;
 
   var CONFIG = {
     ACCELERATION: 0.001,
@@ -149,40 +149,30 @@
       WIDTH: 44,
       HEIGHT: 47,
       WIDTH_DUCK: 59,
-      HEIGHT_DUCK: 30,
       START_X_POS: 30,
       INITIAL_JUMP_VELOCITY: -10,
       DROP_VELOCITY: -5,
-      // An absolute y ceiling; rising past it bleeds off upward velocity.
       MAX_JUMP_HEIGHT: 30,
-      // Distance above the ground past which a jump can be cut short.
       MIN_JUMP_HEIGHT: 30
     };
 
-    // Measured straight off the sprite grids in sprites.js, one box per
-    // contiguous run of pixels so no box ever spans a gap.
+    // The original's own boxes, from dino_game/trex.ts. Ducking uses the same
+    // yPos as standing -- the crouch is where the ink sits in a 47 tall cell,
+    // not a different position -- so its box is measured from there too.
     this.collisionBoxes = {
       RUNNING: [
-        new CollisionBox(17, 0, 26, 21),   // head, jaw and neck
-        new CollisionBox(3, 21, 7, 2),     // tail tip
-        new CollisionBox(15, 21, 19, 2),   // neck
-        new CollisionBox(1, 23, 33, 3),    // tail and back
-        new CollisionBox(2, 26, 35, 7),    // body
-        new CollisionBox(9, 33, 21, 7),    // hips
-        new CollisionBox(9, 40, 8, 7),     // back leg
-        new CollisionBox(20, 40, 8, 7)     // front leg
+        new CollisionBox(22, 0, 17, 16),
+        new CollisionBox(1, 18, 30, 9),
+        new CollisionBox(10, 35, 14, 8),
+        new CollisionBox(1, 24, 29, 5),
+        new CollisionBox(5, 30, 21, 4),
+        new CollisionBox(9, 34, 15, 4)
       ],
-      DUCKING: [
-        new CollisionBox(39, 2, 19, 10),   // head
-        new CollisionBox(1, 12, 55, 9),    // flattened body
-        new CollisionBox(9, 21, 7, 9),     // back leg
-        new CollisionBox(23, 21, 5, 9)     // front leg
-      ]
+      DUCKING: [new CollisionBox(1, 18, 55, 25)]
     };
 
     this.xPos = this.config.START_X_POS;
     this.groundYPos = GROUND_Y - this.config.HEIGHT;
-    this.duckYPos = GROUND_Y - this.config.HEIGHT_DUCK;
     this.minJumpHeight = this.groundYPos - this.config.MIN_JUMP_HEIGHT;
     this.yPos = this.groundYPos;
 
@@ -317,22 +307,20 @@
     draw: function () {
       var sprites = global.Sprites.images;
       var image;
-      var y = this.yPos;
 
       if (this.status === 'CRASHED') {
         image = sprites.trexCrashed;
       } else if (this.status === 'WAITING') {
-        image = this.blinking ? sprites.trexCrashed : sprites.trexIdle;
+        image = this.blinking ? sprites.trexWaiting : sprites.trexJumping;
       } else if (this.ducking) {
         image = this.currentFrame === 0 ? sprites.trexDuck1 : sprites.trexDuck2;
-        y = this.duckYPos;
       } else if (this.jumping) {
-        image = sprites.trexIdle;
+        image = sprites.trexJumping;
       } else {
         image = this.currentFrame === 0 ? sprites.trexRun1 : sprites.trexRun2;
       }
 
-      this.ctx.drawImage(image, Math.round(this.xPos), Math.round(y));
+      this.ctx.drawImage(image, Math.round(this.xPos), Math.round(this.yPos));
     },
 
     /**
@@ -389,79 +377,75 @@
     /** @return {!Array<!CollisionBox>} world-space collision boxes. */
     getCollisionBoxes: function () {
       var boxes = this.ducking ? this.collisionBoxes.DUCKING : this.collisionBoxes.RUNNING;
-      var y = this.ducking ? this.duckYPos : this.yPos;
       var self = this;
       return boxes.map(function (box) {
-        return toWorld(box, self.xPos, y);
+        return toWorld(box, self.xPos, self.yPos);
       });
     },
 
     /** @return {!CollisionBox} a cheap outer bound for early-out testing. */
     getBounds: function () {
-      if (this.ducking) {
-        return new CollisionBox(this.xPos, this.duckYPos,
-            this.config.WIDTH_DUCK, this.config.HEIGHT_DUCK);
-      }
       return new CollisionBox(this.xPos, this.yPos,
-          this.config.WIDTH, this.config.HEIGHT);
+          this.ducking ? this.config.WIDTH_DUCK : this.config.WIDTH,
+          this.config.HEIGHT);
     }
   };
 
   // ------------------------------------------------------------- Obstacles --
 
+  // Straight from dino_game/offline_sprite_definitions.ts: sizes, ground
+  // positions, gaps and collision boxes are the original's own numbers.
   var OBSTACLE_TYPES = [
     {
       type: 'CACTUS_SMALL',
-      sprite: 'cactusSmall',
+      sprites: ['cactusSmall1', 'cactusSmall2', 'cactusSmall3'],
       width: 17,
       height: 35,
-      yPos: GROUND_Y - 35,
+      yPos: 105,
       multipleSpeed: 4,
       minGap: 120,
       minSpeed: 0,
       collisionBoxes: [
-        new CollisionBox(1, 0, 2, 13),    // left arm
-        new CollisionBox(6, 0, 5, 13),    // trunk
-        new CollisionBox(1, 13, 15, 12),  // arms and elbows
-        new CollisionBox(6, 25, 5, 10)    // trunk
+        new CollisionBox(0, 7, 5, 27),
+        new CollisionBox(4, 0, 6, 34),
+        new CollisionBox(10, 4, 7, 14)
       ]
     },
     {
       type: 'CACTUS_LARGE',
-      sprite: 'cactusLarge',
+      sprites: ['cactusLarge1', 'cactusLarge2', 'cactusLarge3'],
       width: 25,
       height: 50,
-      yPos: GROUND_Y - 50,
+      yPos: 90,
       multipleSpeed: 7,
       minGap: 120,
       minSpeed: 0,
       collisionBoxes: [
-        new CollisionBox(2, 0, 3, 16),    // left arm
-        new CollisionBox(9, 0, 7, 16),    // trunk
-        new CollisionBox(2, 16, 21, 17),  // arms and elbows
-        new CollisionBox(9, 33, 7, 17)    // trunk
+        new CollisionBox(0, 12, 7, 38),
+        new CollisionBox(8, 0, 7, 49),
+        new CollisionBox(13, 10, 10, 38)
       ]
     },
     {
       type: 'PTERODACTYL',
-      sprite: 'pterodactyl1',
+      sprites: ['pterodactyl1'],
       spriteAlt: 'pterodactyl2',
       width: 46,
       height: 40,
-      // Low: must be jumped. Middle: duck or jump. High: safe unless you
-      // panic-jump into it.
-      yPos: [GROUND_Y - 42, GROUND_Y - 62, GROUND_Y - 94],
+      // Low, middle and high, as the original flies them.
+      yPos: [100, 75, 50],
       multipleSpeed: 999,
       minSpeed: 8.5,
       minGap: 150,
       speedOffset: 0.8,
       numFrames: 2,
       frameRate: 1000 / 6,
-      // Only the body and beak collide -- the wing sweeps between frames and
-      // hitting one would feel arbitrary.
       collisionBoxes: [
-        new CollisionBox(1, 16, 31, 5),   // upper body and beak
-        new CollisionBox(1, 21, 30, 4)    // lower body
+        new CollisionBox(15, 15, 16, 5),
+        new CollisionBox(18, 21, 24, 6),
+        new CollisionBox(2, 14, 4, 3),
+        new CollisionBox(6, 10, 4, 7),
+        new CollisionBox(10, 8, 6, 9)
       ]
     }
   ];
@@ -534,18 +518,17 @@
 
     draw: function () {
       var sprites = global.Sprites.images;
-      var name = this.typeConfig.sprite;
+      var name;
       if (this.typeConfig.spriteAlt && this.currentFrame === 1) {
         name = this.typeConfig.spriteAlt;
+      } else {
+        name = this.typeConfig.sprites[
+            Math.min(this.size, this.typeConfig.sprites.length) - 1];
       }
-      var image = sprites[name];
-
-      for (var i = 0; i < this.size; i++) {
-        this.ctx.drawImage(image,
-            Math.round(this.xPos + i * this.typeConfig.width),
-            Math.round(this.yPos));
-      }
+      this.ctx.drawImage(sprites[name],
+          Math.round(this.xPos), Math.round(this.yPos));
     },
+
 
     getCollisionBoxes: function () {
       var boxes = [];
@@ -557,6 +540,7 @@
       }
       return boxes;
     },
+
 
     getBounds: function () {
       return new CollisionBox(this.xPos, this.yPos, this.width, this.typeConfig.height);
@@ -598,90 +582,48 @@
    * so the terrain never visibly repeats.
    * @constructor
    */
+  /**
+   * The scrolling ground: the game's own two 600x12 tiles, alternating, which
+   * is how the original avoids an obvious repeat.
+   * @constructor
+   */
   function HorizonLine(canvasCtx) {
     this.ctx = canvasCtx;
     this.tileWidth = CANVAS_WIDTH;
-    this.tileHeight = 14;
-
-    this.tiles = [
-      { canvas: this.makeTile(), xPos: 0 },
-      { canvas: this.makeTile(), xPos: this.tileWidth }
-    ];
+    this.tiles = [{ index: 0, xPos: 0 }, { index: 1, xPos: this.tileWidth }];
   }
 
   HorizonLine.prototype = {
-    /** Allocate a tile canvas. Only ever called twice, at start-up. */
-    makeTile: function () {
-      var canvas = document.createElement('canvas');
-      canvas.width = this.tileWidth;
-      canvas.height = this.tileHeight;
-      this.paintTile(canvas);
-      return canvas;
-    },
-
-    /**
-     * Paint one tile: an unbroken ground line, a few low mounds sitting on it
-     * and scattered pebbles below. The line itself never changes height, so
-     * tiles butt together seamlessly in any order.
-     *
-     * Tiles are repainted in place rather than rebuilt, because a tile is
-     * recycled roughly every three quarters of a second at full speed and a
-     * run is meant to be able to carry on indefinitely.
-     */
-    paintTile: function (canvas) {
-      var ctx = canvas.getContext('2d');
-      var w = this.tileWidth;
-      ctx.clearRect(0, 0, w, this.tileHeight);
-      ctx.fillStyle = '#535353';
-
-      // One flat, unbroken pixel. The original's line does not undulate and
-      // has nothing sitting on top of it -- all of the texture is underneath.
-      ctx.fillRect(0, LINE_TOP, w, 1);
-
-      // Dashes and specks lying below the line, varying in length and in how
-      // far under they sit. Two depths: a busier band just beneath the line
-      // and a sparser scatter further down.
-      var near = randomNum(26, 38);
-      var i;
-      for (i = 0; i < near; i++) {
-        ctx.fillRect(randomNum(0, w - 4), LINE_TOP + randomNum(2, 4),
-                     randomNum(1, 4), 1);
-      }
-
-      var far = randomNum(10, 18);
-      for (i = 0; i < far; i++) {
-        ctx.fillRect(randomNum(0, w - 3), LINE_TOP + randomNum(5, 8),
-                     randomNum(1, 3), 1);
-      }
-    },
-
     update: function (deltaTime, speed) {
       var increment = Math.floor(speed * (FPS / 1000) * deltaTime);
-
-      for (var i = 0; i < this.tiles.length; i++) {
+      var i;
+      for (i = 0; i < this.tiles.length; i++) {
         this.tiles[i].xPos -= increment;
       }
-
-      // Recycle any tile that has scrolled fully off the left edge.
-      for (var j = 0; j < this.tiles.length; j++) {
-        if (this.tiles[j].xPos + this.tileWidth <= 0) {
-          var other = this.tiles[(j + 1) % this.tiles.length];
-          this.tiles[j].xPos = other.xPos + this.tileWidth;
-          this.paintTile(this.tiles[j].canvas);
+      // Recycle whichever tile has scrolled fully off the left edge, swapping
+      // to the other artwork as it goes back out in front.
+      for (i = 0; i < this.tiles.length; i++) {
+        if (this.tiles[i].xPos + this.tileWidth <= 0) {
+          var other = this.tiles[(i + 1) % this.tiles.length];
+          this.tiles[i].xPos = other.xPos + this.tileWidth;
+          this.tiles[i].index = 1 - other.index;
         }
       }
     },
 
     draw: function () {
+      var images = global.Sprites.images;
       for (var i = 0; i < this.tiles.length; i++) {
-        this.ctx.drawImage(this.tiles[i].canvas,
-            Math.round(this.tiles[i].xPos), HORIZON_Y - LINE_TOP);
+        this.ctx.drawImage(this.tiles[i].index === 0 ? images.horizon1 : images.horizon2,
+            Math.round(this.tiles[i].xPos), HORIZON_Y);
       }
     },
 
     reset: function () {
       this.tiles[0].xPos = 0;
+      this.tiles[0].index = 0;
       this.tiles[1].xPos = this.tileWidth;
+      this.tiles[1].index = 1;
     }
   };
 
@@ -923,30 +865,23 @@
   // -------------------------------------------------------- Game over panel --
 
   /** @constructor */
+  /** @constructor */
   function GameOverPanel(canvasCtx) {
     this.ctx = canvasCtx;
-    this.textY = 40;
-    this.buttonSize = 32;
-    this.buttonY = 72;
+    this.textY = 41;
+    this.buttonY = 62;
   }
 
   GameOverPanel.prototype = {
     draw: function () {
-      var text = 'GAME OVER';
-      var spacing = 6;
-      var width = global.Sprites.measureText(text, spacing);
-      global.Sprites.drawText(this.ctx, text,
-          Math.round((CANVAS_WIDTH - width) / 2), this.textY, spacing);
-      this.drawRestartButton();
-    },
+      var images = global.Sprites.images;
+      var text = images.gameOverText;
+      var button = images.restart;
 
-    /** The circular-arrow restart icon, drawn from the same pixel grid as
-     *  everything else rather than as a smooth arc. */
-    drawRestartButton: function () {
-      var icon = global.Sprites.images.restart;
-      this.ctx.drawImage(icon,
-          Math.round((CANVAS_WIDTH - icon.width) / 2),
-          this.buttonY);
+      this.ctx.drawImage(text,
+          Math.round((CANVAS_WIDTH - text.width) / 2), this.textY);
+      this.ctx.drawImage(button,
+          Math.round((CANVAS_WIDTH - button.width) / 2), this.buttonY);
     }
   };
 
@@ -989,7 +924,7 @@
 
     this.setupCanvas();
 
-    global.Sprites.build('#535353');
+    global.Sprites.build();
 
     this.trex = new Trex(this.ctx);
     this.horizon = new Horizon(this.ctx, CONFIG.GAP_COEFFICIENT);

@@ -99,9 +99,11 @@
     hits: function (trexY, ducking, obstacles, frame, variant) {
       var trex = this.runner.trex;
       var boxes = ducking ? trex.collisionBoxes.DUCKING : trex.collisionBoxes.RUNNING;
-      var ty = ducking ? trex.duckYPos : trexY;
+      // Ducking occupies the same cell as standing -- only the width and the
+      // collision boxes change, not where the sprite sits.
+      var ty = trexY;
       var tw = ducking ? trex.config.WIDTH_DUCK : trex.config.WIDTH;
-      var th = ducking ? trex.config.HEIGHT_DUCK : trex.config.HEIGHT;
+      var th = trex.config.HEIGHT;
 
       for (var i = 0; i < obstacles.length; i++) {
         var o = obstacles[i];

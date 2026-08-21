@@ -162,26 +162,22 @@ so the two cannot drift apart.
 
 ## Artwork
 
-Every sprite -- the runner, the cacti, the pterodactyl, the clouds and the
-10x13 score font -- is defined as a pixel grid in `js/sprites.js` and drawn
-onto offscreen canvases when the page loads. Nothing is copied from anyone
-else's sprite sheet and there are no image files to ship. Sound is three
-synthesised WebAudio blips, so there are no audio files either.
+The sprites are the offline game's own, sliced out of the sprite sheet in the
+Chromium source tree and stored as pixel grids in `js/sprites.js`. Chromium is
+BSD licensed; the notice and the exact source paths are in `THIRD_PARTY.md`.
+Sprite sizes, ground positions, gaps and every collision box are taken from the
+same source rather than estimated.
 
-Everything is authored at 1x, at the sizes the original draws: 44x47 for the
-runner, 59x30 ducking, 17x35 and 25x50 for the cacti, 46x40 for the
-pterodactyl, 46x14 for a cloud. An earlier version drew half-resolution grids
-scaled up by two, which meant every apparent pixel was really a 2x2 block --
-about a quarter of the original's detail, and visibly coarse once the canvas
-filled a window.
+Grids are used rather than the PNG itself so the file stays self-contained text
+with nothing to fetch, and so night mode can invert the artwork by flipping the
+whole canvas. Enclosed white in the sheet -- the eye and the mouth -- is kept as
+a hole rather than painted white, which is what lets that inversion look right.
 
-Collision boxes are measured off those grids rather than estimated, one box per
-contiguous run of pixels so that no box spans a gap: the space between the tail
-and the neck, or between a cactus arm and its trunk, must not count as solid.
+The restart button is the one piece drawn here: the modern sheet carries a
+browser logo in that slot rather than the circular arrow the classic game
+shows, so it is generated cell by cell in `js/sprites.js`.
 
-The ground is generated per tile rather than drawn once: one flat, unbroken
-pixel with nothing sitting on top of it, and all the texture underneath -- a
-busy band of dashes just beneath the line and a sparser scatter further down.
+Sound is three synthesised WebAudio blips, so there are no audio files either.
 
 ## What has been checked
 
