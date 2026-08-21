@@ -60,9 +60,9 @@ body.inverted {
 
 .runner-canvas {
   display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 4 / 1;
+  /* Size comes from the script: it picks a whole-number scale so the pixels
+     stay exact. Leaving it to CSS reintroduces the fractional one. */
+  margin: 0 auto;
   background: #fff;
   /* Square, hard-edged pixels at any scale. */
   image-rendering: pixelated;

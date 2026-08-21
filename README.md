@@ -102,11 +102,19 @@ rejects every option and leaves nothing but panic jumps.
 
 ## Fitting the window
 
-The canvas is stretched to the window by CSS, and the backing store is resized
-to match so the pixels stay square and hard-edged rather than being smeared by
-the browser. Everything in the game is still drawn in a fixed 600x150
-coordinate space, so the window size never touches physics, collision boxes or
-obstacle spacing -- a 4K screen plays exactly like a phone, just larger.
+The canvas is scaled by a whole number, the largest that fits the window, and
+centred. Everything in the game is still drawn in a fixed 600x150 coordinate
+space, so the window size never touches physics, collision boxes or obstacle
+spacing -- a 4K screen plays exactly like a phone, just larger.
+
+The scale has to be an integer. Stretching to fill the window exactly makes one
+game pixel cover a fractional number of screen pixels, so every edge lands on a
+partial pixel and gets blended; on a display doing subpixel rendering that
+blend shows up as colour fringing along every dark edge. The backing store is
+sized to a whole multiple of 600x150 and the CSS size to that divided by the
+device pixel ratio, so the browser has nothing left to resample. That leaves a
+margin at some window sizes, which is invisible because the page behind the
+canvas is painted the same colour.
 
 At night the page background is repainted along with the canvas. Inverting
 white gives exactly black, so the two agree and the game reads as filling the
@@ -171,10 +179,9 @@ Collision boxes are measured off those grids rather than estimated, one box per
 contiguous run of pixels so that no box spans a gap: the space between the tail
 and the neck, or between a cactus arm and its trunk, must not count as solid.
 
-The ground is generated per tile rather than drawn once: a one pixel line, a
-bump every few pixels riding on top of it, a handful of shallow dips where the
-line steps down, and grit scattered underneath in loose clusters. The density
-is the point -- a sparse line reads as ruled, not as ground.
+The ground is generated per tile rather than drawn once: one flat, unbroken
+pixel with nothing sitting on top of it, and all the texture underneath -- a
+busy band of dashes just beneath the line and a sparser scatter further down.
 
 ## What has been checked
 
