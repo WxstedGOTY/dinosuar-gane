@@ -81,6 +81,29 @@ rejects every option and leaves nothing but panic jumps.
   page around the canvas follows the device.
 - The high score is kept in `localStorage` under `offline-runner.highScore`.
 
+## Why a run has no ceiling
+
+Difficulty is derived entirely from speed, and speed stops rising at 13, which
+it reaches after about two minutes. Gap sizes, how often obstacles spawn and
+which ones are eligible all come off that one number, so from two minutes in
+the game is as hard as it will ever get and simply repeats. Nothing scales
+with the score.
+
+That makes an unbounded run a question of whether anything degrades rather
+than whether the game gets too fast:
+
+- The score has no digit limit. It pads to five and then grows, and the
+  readout is right-aligned, so six and seven digit scores stay clear of the
+  high score rather than running off the edge.
+- Distance is a double accumulating about 780 per second, which stays an exact
+  integer for longer than the hardware will last.
+- Obstacles and clouds are filtered out once off-screen, and the type history
+  is truncated to two entries.
+- The two ground tiles are repainted in place as they recycle. They used to be
+  rebuilt, which allocated a fresh canvas roughly every three quarters of a
+  second at full speed -- fine for a few minutes, needless churn for a run
+  meant to carry on.
+
 ## Layout
 
 ```
@@ -116,8 +139,10 @@ Driven through a headless browser:
   should not hit while standing, ducking and at the top of a jump. The high
   pterodactyl is the interesting one -- harmless if you keep running, fatal if
   you panic-jump into it.
-- A ten minute autopilot run at maximum speed: score 11,100, no deaths, 15
-  night cycles, no console errors.
+- A forty-five minute autopilot run: score 52,029, no deaths, 2,560 jumps,
+  357 ducks, 74 night cycles, no console errors. Score grew linearly at about
+  5,850 per five minutes throughout, and the JS heap held at 9.5 MB from the
+  first sample to the last.
 - The mid-air fast-fall, run twice per case with the recovery enabled and
   stubbed out: it turned a death into a survival in 8 of 24 cases and never
   made one worse.

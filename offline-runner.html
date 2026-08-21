@@ -1648,17 +1648,27 @@ body {
   }
 
   HorizonLine.prototype = {
-    /**
-     * Build one tile: an unbroken ground line, a few low mounds sitting on it
-     * and scattered pebbles below. The line itself never changes height, so
-     * tiles butt together seamlessly in any order.
-     */
+    /** Allocate a tile canvas. Only ever called twice, at start-up. */
     makeTile: function () {
       var canvas = document.createElement('canvas');
       canvas.width = this.tileWidth;
       canvas.height = this.tileHeight;
+      this.paintTile(canvas);
+      return canvas;
+    },
 
+    /**
+     * Paint one tile: an unbroken ground line, a few low mounds sitting on it
+     * and scattered pebbles below. The line itself never changes height, so
+     * tiles butt together seamlessly in any order.
+     *
+     * Tiles are repainted in place rather than rebuilt, because a tile is
+     * recycled roughly every three quarters of a second at full speed and a
+     * run is meant to be able to carry on indefinitely.
+     */
+    paintTile: function (canvas) {
       var ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, this.tileWidth, this.tileHeight);
       ctx.fillStyle = '#535353';
 
       ctx.fillRect(0, LINE_TOP, this.tileWidth, 2);
@@ -1677,8 +1687,6 @@ body {
         var sy = randomNum(LINE_TOP + 4, this.tileHeight - 2);
         ctx.fillRect(sx, sy, Math.random() < 0.35 ? 2 : 1, 1);
       }
-
-      return canvas;
     },
 
     update: function (deltaTime, speed) {
@@ -1693,7 +1701,7 @@ body {
         if (this.tiles[j].xPos + this.tileWidth <= 0) {
           var other = this.tiles[(j + 1) % this.tiles.length];
           this.tiles[j].xPos = other.xPos + this.tileWidth;
-          this.tiles[j].canvas = this.makeTile();
+          this.paintTile(this.tiles[j].canvas);
         }
       }
     },
